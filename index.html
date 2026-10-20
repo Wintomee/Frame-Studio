@@ -120,6 +120,8 @@ section.tab[hidden]{display:none}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{font:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 12px;cursor:pointer}
 .chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.wchip{display:inline-flex;align-items:center;gap:6px;padding-left:4px;flex:none}
+.wchip canvas{width:22px;height:22px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px var(--line)}
 input[type=range]{flex:1;min-width:140px;accent-color:var(--accent)}
 input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent);margin:0}
 select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:3px 6px}
@@ -194,6 +196,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="frames" id="frames"></div>
     <div class="opts" id="fopts"></div>
     <div class="row" id="swatches" role="group" aria-label="Background"><span class="label">Background</span></div>
+    <div class="opts"><div class="row" id="walls" role="group" aria-label="Wall"><span class="label">Wall</span></div>
+      <div class="row" id="wallDepth" role="group" aria-label="Wall depth" hidden><span class="label">Depth</span></div></div>
     <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="4" aria-label="Padding"><span class="val" id="padVal">4%</span></div>
   </section>
 
@@ -541,7 +545,7 @@ const PRESETS={
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.04,bg:'#ffffff',frame:'none',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+const S={pages:[],active:0,pad:.04,bg:'#ffffff',wall:{kind:'none',depth:'medium'},frame:'none',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
@@ -549,7 +553,7 @@ const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
 const P=()=>S.pages[S.active];
 const Lof=pg=>({cells:pg.cells,x:pg.x,y:pg.y});
 const filled=pg=>pg.photos.filter(Boolean);
-const stOf=(pg,frame=S.frame,bg=S.bg,pad=S.pad)=>({L:Lof(pg),photos:pg.photos,pad,bg,frame});
+const stOf=(pg,frame=S.frame,bg=S.bg,pad=S.pad)=>({L:Lof(pg),photos:pg.photos,pad,bg,wall:S.wall,frame});
 const rects=()=>rectsOf(Lof(P()),S.pad,insOf(S.frame));
 const rules=()=>({...S.rules,pad:S.pad,ins:insOf(S.frame)});
 let uidN=0;const newId=()=>Date.now().toString(36)+(uidN++).toString(36)+Math.random().toString(36).slice(2,6);
@@ -564,6 +568,66 @@ function noiseTile(){
   x.putImageData(d,0,0);return tile;
 }
 function paper(c){c.save();c.globalAlpha=.6;c.fillStyle=c.createPattern(noiseTile(),'repeat');c.fillRect(0,0,W,H);c.restore()}
+
+/* Wall textures: a seamless height map per pattern, lit from the top left, stored as white highlights and black
+   shadows on transparent so it takes the background colour underneath. Sizes are in export pixels. */
+const TN=1024,TM=TN-1;
+function bumps(h,r,n,r0,r1,amp,flat=0){
+  for(let i=0;i<n;i++){
+    const R=r0+(r1-r0)*r()**2,cx=r()*TN|0,cy=r()*TN|0,a=amp*(.6+.8*r())*(r()<flat?-1:1),R2=R*R,e=Math.ceil(R);
+    for(let dy=-e;dy<=e;dy++)for(let dx=-e;dx<=e;dx++){const d=(dx*dx+dy*dy)/R2;if(d<1)h[((cy+dy)&TM)*TN+((cx+dx)&TM)]+=a*(1-d)*(1-d)}
+  }
+}
+function vnoise(h,r,cell,amp,sx=1,sy=1){
+  const gx=TN/cell/sx,gy=TN/cell/sy,g=Float32Array.from({length:gx*gy},()=>r()*2-1),s=t=>t*t*(3-2*t);
+  for(let y=0;y<TN;y++){const fy=y/TN*gy,y0=fy|0,ty=s(fy-y0),y1=(y0+1)%gy;
+    for(let x=0;x<TN;x++){const fx=x/TN*gx,x0=fx|0,tx=s(fx-x0),x1=(x0+1)%gx;
+      const a=g[y0*gx+x0]+(g[y0*gx+x1]-g[y0*gx+x0])*tx,b=g[y1*gx+x0]+(g[y1*gx+x1]-g[y1*gx+x0])*tx;h[y*TN+x]+=amp*(a+(b-a)*ty)}}
+}
+const WALLS={
+  plaster(h,r){vnoise(h,r,128,.08);bumps(h,r,40000,1,2,.12);bumps(h,r,26000,1.8,4.5,.3);bumps(h,r,1200,4.5,8,.25);return {k:1,ao:.12}},
+  stucco(h,r){vnoise(h,r,128,.2);bumps(h,r,900,14,40,1);for(let i=0;i<h.length;i++)h[i]=Math.min(h[i],.9+.1*h[i]);bumps(h,r,20000,1,2.5,.08);return {k:1.3,ao:.15}},
+  concrete(h,r){vnoise(h,r,128,.12);vnoise(h,r,32,.1);vnoise(h,r,8,.05);bumps(h,r,600,1.5,4,.5,1);bumps(h,r,25000,1,2,.05);return {k:1.1,ao:.12}},
+  linen(h,r){vnoise(h,r,4,.5,16,1);vnoise(h,r,4,.5,1,16);vnoise(h,r,2,.15,8,1);vnoise(h,r,2,.15,1,8);return {k:.45,ao:.15}},
+  brick(h,r){
+    const bw=512,bh=128,m=10,tone=Float32Array.from({length:16},()=>r()*.12-.06);vnoise(h,r,32,.05);bumps(h,r,20000,1,2.5,.06);
+    for(let y=0;y<TN;y++){const row=y/bh|0,yy=y%bh,off=row&1?bw/2:0;
+      for(let x=0;x<TN;x++){const xx=(x+off)%bw,e=Math.min(xx,bw-1-xx,yy,bh-1-yy),id=row*2+((x+off)/bw|0)%2;
+        h[y*TN+x]+=e<m?-.5+.08*(e/m):.18*Math.min(1,(e-m)/4)+tone[id]}}
+    bumps(h,r,2500,1.5,4,.12,.5);return {k:1.2,ao:.35}},
+  boards(h,r){
+    const bw=256;vnoise(h,r,16,.35,1,16);vnoise(h,r,4,.1,1,32);
+    for(let y=0;y<TN;y++)for(let x=0;x<TN;x++){const e=Math.min(x%bw,bw-1-x%bw);if(e<5)h[y*TN+x]-=.8-.14*e}
+    return {k:1.2,ao:.3}},
+};
+const WALL_LIST=[['none','None'],['plaster','Plaster'],['stucco','Stucco'],['concrete','Concrete'],['linen','Linen'],['brick','Brick'],['boards','Boards']];
+const WALL_DEPTH={subtle:.45,medium:.75,strong:1};
+const wallTiles={};
+function wallTile(kind){
+  if(wallTiles[kind])return wallTiles[kind];
+  const h=new Float32Array(TN*TN),{k,ao}=WALLS[kind](h,rng(kind.length*97+3));
+  let mean=0;for(const v of h)mean+=v;mean/=h.length;
+  const t=document.createElement('canvas');t.width=t.height=TN;const x=t.getContext('2d'),d=x.createImageData(TN,TN),o=d.data;
+  for(let y=0;y<TN;y++)for(let i=0;i<TN;i++){
+    const at=(xx,yy)=>h[(yy&TM)*TN+(xx&TM)],gx=at(i-1,y)-at(i+1,y),gy=at(i,y-1)-at(i,y+1);
+    let v=k*(.75*gx+gy)+ao*(at(i,y)-mean);v=Math.max(-.7,Math.min(.6,v));
+    const p=(y*TN+i)*4,c=v>0?255:0;o[p]=o[p+1]=o[p+2]=c;o[p+3]=Math.abs(v)*255;
+  }
+  x.putImageData(d,0,0);return wallTiles[kind]=t;
+}
+// halve the tile f times (box filter by repeated halving) so a scaled-down preview doesn't shimmer
+const wallMips={};
+function wallMip(kind,f){
+  const key=kind+f;if(wallMips[key])return wallMips[key];
+  let t=wallTile(kind);for(let s=1;s<f;s*=2){const n=document.createElement('canvas');n.width=n.height=t.width/2;const x=n.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(t,0,0,n.width,n.height);t=n}
+  return wallMips[key]=t;
+}
+function wall(c,w){
+  if(!w||!WALLS[w.kind])return;
+  const f=Math.min(8,2**Math.max(0,Math.floor(Math.log2(.7/c.getTransform().a)))),pat=c.createPattern(wallMip(w.kind,f),'repeat');
+  if(f>1)pat.setTransform(new DOMMatrix().scale(f));
+  c.save();c.globalAlpha=WALL_DEPTH[w.depth]??.75;c.fillStyle=pat;c.fillRect(0,0,W,H);c.restore();
+}
 function bevels(c,g,rs,kind='white'){
   if(kind==='none')return;
   const b=clamp(g.p*.07,3,16);if(g.p<b*2.5)return;
@@ -672,7 +736,7 @@ function badge(c,ph,r,k){
   else{c.beginPath();c.moveTo(cx,cy-6*k);c.lineTo(cx,cy+1.5*k);c.stroke();c.beginPath();c.arc(cx,cy+5*k,1.3*k,0,Math.PI*2);c.fill()}
 }
 
-function drawBase(c,st){c.fillStyle=st.bg;c.fillRect(0,0,W,H);FRAMES[st.frame](c,st,geoOf(st.pad,insOf(st.frame)),rectsOf(st.L,st.pad,insOf(st.frame)))}
+function drawBase(c,st){c.fillStyle=st.bg;c.fillRect(0,0,W,H);wall(c,st.wall||S.wall);FRAMES[st.frame](c,st,geoOf(st.pad,insOf(st.frame)),rectsOf(st.L,st.pad,insOf(st.frame)))}
 function drawPhoto(c,ph,img,r){
   const pl=place(ph,r),cr=ph.crop;c.save();c.beginPath();c.rect(r.x,r.y,r.w,r.h);c.clip();
   if(cr){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;c.drawImage(img,cr.x*iw,cr.y*ih,cr.w*iw,cr.h*ih,pl.x,pl.y,pl.w,pl.h)}
@@ -779,7 +843,7 @@ async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'
 let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveState,700)}
 async function saveState(){
   try{
-    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
+    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
       pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
@@ -790,7 +854,7 @@ async function restore(){
   try{
     const st=await DB.get('kv','state');if(!st||!st.pages||!st.pages.length)return false;
     hint('Restoring your set…');
-    Object.assign(S,{bg:st.bg||S.bg,frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
+    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
     if(S.rules.dates===undefined)S.rules.dates=S.rules.order?2:1;delete S.rules.order;setPad(st.pad??S.pad);
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
     const pages=[];
@@ -1231,7 +1295,7 @@ function syncTabs(){
   document.querySelector('header.top').classList.toggle('nolayout',S.tab!=='layout');
   if(S.tab!=='layout'){S.sel=-1;if(stage.classList.contains('full'))setFull(false)}
   render();
-  if(S.tab==='frame')renderFrames();
+  if(S.tab==='frame'){renderFrames();syncWall()}
   if(S.tab==='layout')renderSugs();
   if(S.tab==='export')syncExport();
 }
@@ -1347,9 +1411,23 @@ swWrap.insertAdjacentHTML('beforeend','<label class="sw custom" title="Custom co
 $('bgPick').addEventListener('input',e=>{S.bg=e.target.value;syncSw();render()});
 $('bgPick').addEventListener('change',e=>{S.bg=e.target.value;refresh()});
 function syncSw(){
+  syncWall();
   swWrap.querySelectorAll('.sw[data-c]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===S.bg));
   const custom=!BGS.includes(S.bg),lab=swWrap.querySelector('.sw.custom');lab.setAttribute('aria-pressed',custom);
   lab.querySelector('i').style.background=custom?S.bg:'transparent';if(custom&&$('bgPick').value!==S.bg)$('bgPick').value=S.bg;
+}
+const wallWrap=$('walls'),depthWrap=$('wallDepth');
+WALL_LIST.forEach(([id,name])=>{const b=document.createElement('button');b.className='chip wchip';b.dataset.w=id;b.innerHTML=`<canvas width="44" height="44"></canvas>${name}`;
+  b.onclick=()=>{S.wall={...S.wall,kind:id};refresh()};wallWrap.appendChild(b)});
+Object.keys(WALL_DEPTH).forEach(d=>{const b=document.createElement('button');b.className='chip';b.dataset.d=d;b.textContent=d[0].toUpperCase()+d.slice(1);
+  b.onclick=()=>{S.wall={...S.wall,depth:d};refresh()};depthWrap.appendChild(b)});
+let wallSig='';
+function syncWall(){
+  wallWrap.querySelectorAll('.wchip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.w===S.wall.kind));
+  depthWrap.hidden=S.wall.kind==='none';depthWrap.querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.d===S.wall.depth));
+  if(S.tab!=='frame'||wallSig===S.bg+S.wall.depth)return;wallSig=S.bg+S.wall.depth; // tiles are built lazily, only once the Frame tab is open
+  wallWrap.querySelectorAll('.wchip canvas').forEach(cv=>{const x=cv.getContext('2d'),id=cv.parentNode.dataset.w;
+    x.setTransform(1,0,0,1,0,0);x.fillStyle=S.bg;x.fillRect(0,0,44,44);x.setTransform(.16,0,0,.16,0,0);wall(x,{kind:id,depth:S.wall.depth})});
 }
 function renderFrameOpts(){
   const wrap=$('fopts');wrap.innerHTML='';
@@ -1434,7 +1512,7 @@ async function renderExport(st){
   const rs=rectsOf(st.L,st.pad,insOf(st.frame));
   for(let i=0;i<rs.length;i++){const ph=st.photos[i];const img=await fullOf(ph);drawPhoto(x,ph,img,rs[i]);freeImg(img)}
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));c.width=c.height=1;
-  return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs});
+  return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,wall:st.wall,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs});
 }
 const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
 const complete=pg=>pg.cells.every((c,j)=>pg.photos[j]);
@@ -1486,7 +1564,7 @@ $('exportFile').addEventListener('change',async e=>{
     freeImg(im);
     const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
     const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};
-    if(!S.pages.length){S.bg=meta.bg;S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
+    if(!S.pages.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
     S.pages.push(pg);S.active=S.pages.length-1;S.sel=-1;refresh();
     hint('Reopened. Pick a new frame and export again.');
   }catch{hint('Couldn’t read that image.')}

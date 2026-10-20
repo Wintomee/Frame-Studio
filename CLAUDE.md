@@ -78,6 +78,14 @@ colour), Wood (tone, moulding width, bevel), Metal (finish, width), Floating (sh
 corners). Polaroid was removed at the user's request. Canvas `shadowBlur` is not affected by transforms, so it is
 multiplied by `c.getTransform().a` so the preview matches the export.
 
+### Wall textures
+`S.wall` {kind, depth} adds a texture over the background colour (Frame tab, "Wall" row; depth chips appear once a
+texture is chosen): Plaster (matches a photo of the user's orange-peel wall), Stucco, Concrete, Linen, Brick, Boards.
+Each is a seamless 1024 px height map built in `WALLS`, lit from the top left by `wallTile` and stored as white/black
+alpha, so it takes any background colour. Sizes are in export pixels and tuned so a 1:1 crop looks like a real wall on a
+65" TV. `wallMip` pre-halves the tile for the small preview to avoid shimmer. It's drawn in `drawBase` before the frame,
+saved in state and in the export XMP, and restored by "Reopen an export".
+
 ### Export and reframe
 - Export renders the base, then each photo from its **full-resolution file**, decoded one at a time to save memory.
   The output is a JPEG at quality 0.92.
