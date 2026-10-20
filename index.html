@@ -460,10 +460,33 @@ function clustersOf(sorted,R){
   }
   return cl;
 }
+/* Unordered search size grows with the product of (photos per aspect class + 1). Split a time-sorted run into
+   contiguous chunks that stay under a budget, cutting at the biggest gap in the back half, so big imports stay fast. */
+const STATES=6000;
+const statesOf=run=>{const c={};run.forEach(p=>c[akey(p)]=(c[akey(p)]||0)+1);return Object.values(c).reduce((a,v)=>a*(v+1),1)};
+function chunksOf(sorted,budget=STATES){
+  const out=[];let rest=sorted;
+  while(rest.length&&statesOf(rest)>budget){
+    let n=1;while(n<rest.length&&statesOf(rest.slice(0,n+1))<=budget)n++;
+    let cut=n,best=-Infinity;
+    for(let i=Math.ceil(n/2);i<n;i++){const d=gapScore(rest[i-1],rest[i]).d;if(d>best){best=d;cut=i}}
+    out.push(rest.slice(0,cut));rest=rest.slice(cut);
+  }
+  if(rest.length)out.push(rest);
+  // a short tail can't fill images well on its own: re-split it with the chunk before at that pair's biggest middle gap
+  if(out.length>1&&out[out.length-1].length<2*MAX){
+    const two=[...out[out.length-2],...out.pop()],lo=Math.floor(two.length/3),hi=Math.ceil(two.length*2/3);
+    let cut=two.length>>1,best=-Infinity;
+    for(let i=lo;i<=hi;i++){const d=gapScore(two[i-1],two[i]).d;if(d>best){best=d;cut=i}}
+    out[out.length-1]=two.slice(0,cut);out.push(two.slice(cut));
+  }
+  return out;
+}
 function validPage(pg,R){const s=pg.score,n=pg.photos.length;return s.minKeep>=R.minKeep-1e-6&&s.minArea>=(R.minArea??.08)-1e-6&&s.maxUp<=R.maxUp+1e-6&&!ruleBreak(pg.photos,R)&&n>=R.min&&n<=R.max}
 function compose(pool,R){
   const sorted=[...pool].sort((a,b)=>a.date-b.date),cache=new Map();
-  const groups=R.dates?clustersOf(sorted,R).flatMap(cl=>R.dates===2?solveOrdered(cl,R,cache):solveUnordered(cl,R,cache)):solveUnordered(sorted,R,cache);
+  const runs=R.dates?clustersOf(sorted,R):[sorted];
+  const groups=runs.flatMap(cl=>R.dates===2?solveOrdered(cl,R,cache):chunksOf(cl).flatMap(ch=>solveUnordered(ch,R,cache)));
   return groups.map(g=>({...bestPage(g,R),broken:ruleBreak(g,R),first:Math.min(...g.map(p=>p.date))}))
     .sort((a,b)=>a.first-b.first);
 }
@@ -797,7 +820,6 @@ function firstDate(pg){const d=filled(pg).map(p=>p.date);return d.length?Math.mi
 const setSig=pages=>pages.map(p=>JSON.stringify(p.cells)+':'+p.photos.map(q=>q&&q.id).join(',')).sort().join('|');
 function plan(pool,seed){
   const R={...rules(),seed};
-  if(R.dates!==2){const cls={};pool.forEach(p=>cls[akey(p)]=(cls[akey(p)]||0)+1);if(Object.values(cls).reduce((a,c)=>a*(c+1),1)>20000)R.dates=2}
   const res=compose(pool,R);return {res,valid:res.every(pg=>validPage(pg,R))};
 }
 let shuffleN=0;
@@ -1379,7 +1401,7 @@ let recT=0;
 function queueRecompose(ms){clearTimeout(recT);recT=setTimeout(()=>{
   if(!S.pages.length){scheduleSave();return}
   if(!S.pages.some(p=>!p.locked)){hint('Every image is locked, so nothing was recomposed.');scheduleSave();return}
-  const n=recompose();refresh();hint(`Recomposed into ${n} image${n>1?'s':''}.`);
+  hint('Arranging…');setTimeout(()=>{const n=recompose();refresh();hint(`Recomposed into ${n} image${n>1?'s':''}.`)},30);
 },ms)}
 $('bRecompose').onclick=tryAnother;
 function openSheet(){$('sheet').hidden=false;syncSheet()}

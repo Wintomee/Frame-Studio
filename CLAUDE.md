@@ -127,7 +127,9 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
 ## Known issues / open questions
 - Verify on a real iPhone: XMP survives Photos; GPS survives the picker (iOS may strip location; time-only fallback
   works); pinch feel; hold delay (380 ms).
-- Unordered DP can blow up with many distinct aspect classes; `plan()` falls back to `dates=2` above ~20k states.
+- Big imports: the unordered DP's size is the product of (photos per aspect class + 1). `chunksOf` splits each run
+  (the whole set for "none", each moment for "medium") into time-contiguous chunks under `STATES` (6000), cutting at the
+  biggest gap. 100 photos compose in ~3 s on desktop; 6000 was the best speed/quality trade-off in benchmarks.
 - Swap ghost uses the uncropped preview.
 - Sending images straight to the TV isn't possible from a browser; SmartThings stays the last step.
 

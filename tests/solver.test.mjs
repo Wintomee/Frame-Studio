@@ -45,4 +45,15 @@ test('moments: bursts, trip days and a location jump', () => {
   assert.equal(S.clustersOf(ph, { ...R, dates: 2 }).length, 10); // Max splits the trip per day
 });
 
+test('100 photos in one moment: chunked, fast, all images valid', () => {
+  const shapes = [[4032, 3024], [3024, 4032], [3840, 2160], [3024, 3024]], pool = [];
+  for (let i = 0; i < 100; i++) { const [w, h] = shapes[(i * 7 + (i >> 2)) % 4]; pool.push({ id: 'x' + i, w, h, date: i * 3 * 60e3 }); }
+  for (const dates of [0, 1]) {
+    const t0 = Date.now(), pages = S.compose(pool, { ...R, dates });
+    assert.equal(pages.flatMap(pg => pg.photos).length, 100, 'every photo placed once');
+    assert.ok(pages.every(pg => S.validPage(pg, { ...R, dates })), 'all images pass the rules');
+    assert.ok(Date.now() - t0 < 15000, 'took ' + (Date.now() - t0) + 'ms');
+  }
+});
+
 console.log(`\n${n} tests passed`);
