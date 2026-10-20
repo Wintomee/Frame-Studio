@@ -198,7 +198,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="row" id="swatches" role="group" aria-label="Background"><span class="label">Background</span></div>
     <div class="opts"><div class="row" id="walls" role="group" aria-label="Wall"><span class="label">Wall</span></div>
       <div class="row" id="wallDepth" role="group" aria-label="Wall depth" hidden><span class="label">Depth</span></div></div>
-    <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="4" aria-label="Padding"><span class="val" id="padVal">4%</span></div>
+    <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="6" aria-label="Padding"><span class="val" id="padVal">6%</span></div>
   </section>
 
 
@@ -531,7 +531,7 @@ $('bRecompose').innerHTML=svg('shuffle')+'<span>Try another arrangement for this
 
 const BGS=['#ffffff','#f1ede4','#d9d7d2','#3a3b3d','#000000'];
 const FRAME_LIST=[['none','Plain'],['mat','Gallery mat'],['wood','Wood'],['metal','Metal'],['float','Floating'],['deco','Art deco']];
-const FRAME_BG={mat:'#f1ede4',wood:'#f1ede4',metal:'#ffffff',float:'#3a3b3d',deco:'#000000'};
+const FRAME_BG={mat:'#f1ede4',wood:'#f1ede4',metal:'#ffffff',float:'#f1ede4',deco:'#000000'};
 const FOPTS={
   mat:[['bevel','Bevel',[['white','White'],['black','Black'],['none','None']]]],
   wood:[['tone','Wood',[['walnut','Walnut'],['oak','Oak'],['ebony','Ebony'],['white','Whitewash']]],['width','Moulding',[['s','Thin'],['m','Medium'],['l','Wide']]],['bevel','Bevel',[['white','White'],['black','Black'],['none','None']]]],
@@ -539,13 +539,13 @@ const FOPTS={
   float:[['depth','Shadow',[['subtle','Subtle'],['medium','Medium'],['strong','Strong']]]],
   deco:[['metal','Lines',[['gold','Gold'],['silver','Silver'],['black','Black'],['white','White']]],['corners','Corners',[[true,'On'],[false,'Off']]]],
 };
-const FOPT_DEFAULT={mat:{bevel:'white'},wood:{tone:'walnut',width:'m',bevel:'white'},metal:{finish:'silver',width:'m'},float:{depth:'medium'},deco:{metal:'gold',corners:true}};
+const FOPT_DEFAULT={mat:{bevel:'white'},wood:{tone:'walnut',width:'m',bevel:'white'},metal:{finish:'silver',width:'m'},float:{depth:'strong'},deco:{metal:'gold',corners:true}};
 const PRESETS={
   balanced:{label:'Balanced',dates:1,portrait:true,minKeep:.8,maxUp:1,minArea:.08,min:2,max:4},
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.04,bg:'#ffffff',wall:{kind:'none',depth:'medium'},frame:'none',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
