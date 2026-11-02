@@ -56,4 +56,18 @@ test('100 photos in one moment: chunked, fast, all images valid', () => {
   }
 });
 
+test('hero: a vertical takes the full height and is the biggest photo', () => {
+  const hero = { ...P(3, 9), hero: true }, b = S.bestPage([L(0, 1), L(1, 2), hero], R);
+  const rs = S.rectsOf(b.L, R.pad, 0), i = b.photos.indexOf(hero), ih = 2160 - 2 * Math.round(R.pad * 2160);
+  assert.ok(rs[i].h >= ih - 1, 'hero height ' + rs[i].h + ' of ' + ih);
+  assert.ok(rs.every((r, j) => j === i || r.w * r.h <= rs[i].w * rs[i].h * 1.02), 'nothing bigger than the hero');
+});
+
+test('bigger photos: mostly 2 per image', () => {
+  const pool = []; for (let i = 0; i < 24; i++) pool.push((i % 5 < 3 ? L : P)(i * 60e3, i));
+  const per = big => { const pg = S.compose(pool, { ...R, dates: 0, big }); return pool.length / pg.length; };
+  const a = per(false), b = per(true);
+  assert.ok(b < a && b <= 2.5, `avg per image ${a.toFixed(2)} → ${b.toFixed(2)}`);
+});
+
 console.log(`\n${n} tests passed`);

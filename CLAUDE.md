@@ -71,6 +71,17 @@ moulding**, so the visible mat around the outside equals the gaps between photos
   user disliked merges that created invalid layouts. Layout icons that can't hold the photos within the rules are
   shown faded and dashed.
 
+### Hero photo and bigger photos
+- **Hero** (star in the photo action bar, `ph.hero`, saved per photo): `scoreL` adds a cost so a vertical hero takes
+  the full inner height and a horizontal one most of the width, plus a penalty if another photo is bigger. `akey` adds
+  100 for heroes so permutations and caches treat them as their own class. Tapping the star runs `heroPlan`: the
+  cheapest valid change among re-laying out the same photos, one trade (swap, move out, take in) with up to 8 nearby
+  images in the same moment, or splitting the image in two (+.4 for the extra image). Undo via the toast. Auto-arrange
+  respects heroes through the same scoring.
+- **Bigger photos** (`R.big`, checkbox in the Auto-arrange sheet, kept across presets): `groupCost` adds .5 per photo
+  over 2. On a trip-like set it moves the average from ~2.7 to ~2.4 per image; 3s remain where moments have odd counts
+  or the portrait rule needs them. A "maximise the smallest photo" variant was benchmarked and was no better.
+
 ### Frames: important invariant
 Frames **never paint inside photo rects**. Photos are drawn after the frame, and decorations live only in the
 padding or the outer moulding. This is what makes reframing possible. Current frames: Plain, Gallery mat (bevel
