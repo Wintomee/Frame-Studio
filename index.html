@@ -322,13 +322,14 @@ const akey=ph=>Math.round(Math.log(ph.w/ph.h)*5)+(ph.hero?100:0); // a hero is i
 
 function scoreL(L,phs,pad,R){
   const rs=rectsOf(L,pad,R.ins||0);let cost=0,minKeep=1,maxUp=0,minArea=1;const areas=[];
+  const V=phs.some(p=>p&&p.hero)?6:1; // with a hero, breaking a rule must always cost more than the hero gains
   rs.forEach((r,i)=>{
     const ph=phs[i];if(r.w<=0||r.h<=0){cost+=100;return}
     const a=r.w/r.h,pa=ph.w/ph.h,keep=Math.min(a,pa)/Math.max(a,pa),up=Math.max(r.w/ph.w,r.h/ph.h);
     minKeep=Math.min(minKeep,keep);maxUp=Math.max(maxUp,up);cost+=1-keep;
-    if(keep<R.minKeep)cost+=1+8*(R.minKeep-keep);
-    if(up>R.maxUp)cost+=1+4*(up-R.maxUp);
-    const af=r.w*r.h/(W*H),ma=R.minArea??.05;areas.push(af);minArea=Math.min(minArea,af);if(af<ma)cost+=1+30*(ma-af);
+    if(keep<R.minKeep)cost+=V*(1+8*(R.minKeep-keep));
+    if(up>R.maxUp)cost+=V*(1+4*(up-R.maxUp));
+    const af=r.w*r.h/(W*H),ma=R.minArea??.05;areas.push(af);minArea=Math.min(minArea,af);if(af<ma)cost+=V*(1+30*(ma-af));
   });
   if(areas.length>1){const m=areas.reduce((a,b)=>a+b)/areas.length;const sd=Math.sqrt(areas.reduce((a,b)=>a+(b-m)**2,0)/areas.length);cost+=.15*sd/m}
   // hero: a vertical should take the full height, a horizontal most of the width, and nothing else may be bigger
@@ -371,12 +372,14 @@ function bestPage(phs,R){
   for(const d of defs)for(const pm of permsOf(phs)){
     const a=pm.map(i=>phs[i]);cands.push({d,a,c:scoreL({cells:d.cells,x:d.dx,y:d.dy},a,R.pad,R).cost});
   }
-  cands.sort((p,q)=>p.c-q.c);let best=null;
+  cands.sort((p,q)=>p.c-q.c);let best=null,bestV=null;
   for(const cd of cands.slice(0,40)){
     const o=optimizeL(cd.d,cd.a,R.pad,R),jit=R.seed?hash01(LAYOUTS.indexOf(cd.d)+':'+cd.a.map(akey).join(',')+'|'+R.seed)*.35:0;
-    if(!best||o.score.cost+jit<best.c)best={L:o.L,score:o.score,def:cd.d,photos:cd.a,c:o.score.cost+jit};
+    const b={L:o.L,score:o.score,def:cd.d,photos:cd.a,c:o.score.cost+jit};
+    if(!best||b.c<best.c)best=b;
+    if(validPage(b,R)&&(!bestV||b.c<bestV.c))bestV=b;
   }
-  return best;
+  return bestV||best; // a layout that passes the rules always beats a cheaper one that doesn't
 }
 /* best arrangement per layout for these photos, best first */
 function suggestionsFor(phs,R){
@@ -1287,7 +1290,7 @@ function heroPlan(hero){
 $('bHero').onclick=async()=>{
   const pg=P(),ph=pg&&pg.photos[S.sel];if(!ph)return;
   if(ph.hero){ph.hero=false;refresh();hint('No longer the hero.');return}
-  const before=S.pages.map(snapPage),at=S.active;
+  const before=S.pages.map(snapPage),at=S.active,areaOf=()=>{const r=rectsOf(Lof(P()),S.pad,insOf(S.frame))[P().photos.indexOf(ph)];return r.w*r.h},a0=areaOf();
   filled(pg).forEach(p=>p.hero=false);ph.hero=true;hint('Making room…');await tick(30);
   const o=heroPlan(ph);
   if(!o){refresh();hint('It can’t get bigger within the rules.');return}
@@ -1297,6 +1300,7 @@ $('bHero').onclick=async()=>{
   if(o.split)S.pages.splice(at+1,0,pageFrom({def:o.B.def,L:o.B.L,photos:o.B.photos.map(p=>byId.get(p.id))}));
   else if(o.O){if(o.B)set(o.O,o.B);else S.pages.splice(S.pages.indexOf(o.O),1)}
   S.active=S.pages.indexOf(pg);S.sel=pg.photos.indexOf(ph);refresh();
+  if(areaOf()<=a0*1.02&&!o.O&&!o.split){hint('It’s as big as it can get within the rules.');return}
   toast(o.split?'Hero set; the rest moved to a new image.':o.O?'Hero set; traded with a nearby image.':'Hero set.',()=>{S.pages=before;S.active=at;S.sel=-1});
 };
 $('bRemove').onclick=()=>{

@@ -78,6 +78,9 @@ moulding**, so the visible mat around the outside equals the gaps between photos
   cheapest valid change among re-laying out the same photos, one trade (swap, move out, take in) with up to 8 nearby
   images in the same moment, or splitting the image in two (+.4 for the extra image). Undo via the toast. Auto-arrange
   respects heroes through the same scoring.
+  Rules always win over the hero: with a hero on the page `scoreL` multiplies rule-violation costs by 6, and
+  `bestPage` returns the cheapest layout that passes `validPage` when one exists. Without this a square hero forced
+  itself to full height, broke the crop rule, and `heroPlan` found nothing valid ("can't get bigger").
 - **Bigger photos** (`R.big`, checkbox in the Auto-arrange sheet, kept across presets): `groupCost` adds .5 per photo
   over 2. On a trip-like set it moves the average from ~2.7 to ~2.4 per image; 3s remain where moments have odd counts
   or the portrait rule needs them. A "maximise the smallest photo" variant was benchmarked and was no better.

@@ -56,11 +56,16 @@ test('100 photos in one moment: chunked, fast, all images valid', () => {
   }
 });
 
-test('hero: a vertical takes the full height and is the biggest photo', () => {
-  const hero = { ...P(3, 9), hero: true }, b = S.bestPage([L(0, 1), L(1, 2), hero], R);
+test('hero: a vertical takes the full height, within the rules', () => {
+  const R2 = { ...R, portrait: false }, hero = { ...P(3, 9), hero: true }, b = S.bestPage([P(0, 1), hero], R2);
   const rs = S.rectsOf(b.L, R.pad, 0), i = b.photos.indexOf(hero), ih = 2160 - 2 * Math.round(R.pad * 2160);
+  assert.ok(S.validPage(b, R2), 'passes the rules');
   assert.ok(rs[i].h >= ih - 1, 'hero height ' + rs[i].h + ' of ' + ih);
-  assert.ok(rs.every((r, j) => j === i || r.w * r.h <= rs[i].w * rs[i].h * 1.02), 'nothing bigger than the hero');
+});
+
+test('hero never breaks the rules when a valid layout exists (square hero)', () => {
+  const sq = { id: 'Q', w: 3024, h: 3024, date: 5, hero: true };
+  for (const set of [[L(0, 1), P(1, 2), sq], [L(0, 1), L(1, 2), sq]]) assert.ok(S.validPage(S.bestPage(set, R), R));
 });
 
 test('bigger photos: mostly 2 per image', () => {
