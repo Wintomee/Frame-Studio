@@ -84,8 +84,10 @@ moulding**, so the visible mat around the outside equals the gaps between photos
   Rules always win over the hero: with a hero on the page `scoreL` multiplies rule-violation costs by 6, and
   `bestPage` returns the cheapest layout that passes `validPage` when one exists. A gain under 10% reports "as big as
   it can get".
-- The portrait rule counts a **square** as a valid partner for a vertical (square + vertical fills 16:9 well); before,
-  a square hero couldn't pair with a vertical at all.
+- The portrait rule counts a **square** as a valid partner for a vertical (square + vertical fills 16:9 well). `orient`
+  calls a photo square when it is closer to 1:1 than to 3:4 or 4:3 (aspect 0.866–1.155), so near-square photos count.
+  The hero target is "fill the height or the width, whichever is larger" with no orientation cut-off. Swept 0.8–1.2 in
+  the user's real scenario: 0.88–1.2 reach full height; 0.85 and below are verticals.
 - **Bigger photos** (`R.big`, checkbox in the Auto-arrange sheet, kept across presets): `groupCost` adds .5 per photo
   over 2. On a trip-like set it moves the average from ~2.7 to ~2.4 per image; 3s remain where moments have odd counts
   or the portrait rule needs them. A "maximise the smallest photo" variant was benchmarked and was no better.

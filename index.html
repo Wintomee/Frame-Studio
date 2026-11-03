@@ -317,7 +317,7 @@ function place(ph,r){
   const s=Math.max(r.w/ph.w,r.h/ph.h)*ph.zoom, dw=ph.w*s, dh=ph.h*s, sx=dw-r.w, sy=dh-r.h;
   return {x:r.x-sx*ph.cx,y:r.y-sy*ph.cy,w:dw,h:dh,sx,sy,up:s};
 }
-const orient=ph=>{const a=ph.w/ph.h;return a<.9?'P':a>1.1?'L':'S'};
+const orient=ph=>{const a=ph.w/ph.h;return a<.866?'P':a>1.155?'L':'S'}; // square = closer to 1:1 than to 3:4 or 4:3
 const akey=ph=>Math.round(Math.log(ph.w/ph.h)*5)+(ph.hero?100:0); // a hero is its own class, so caches and orders tell it apart
 
 function scoreL(L,phs,pad,R){
@@ -332,11 +332,11 @@ function scoreL(L,phs,pad,R){
     const af=r.w*r.h/(W*H),ma=R.minArea??.05;areas.push(af);minArea=Math.min(minArea,af);if(af<ma)cost+=V*(1+30*(ma-af));
   });
   if(areas.length>1){const m=areas.reduce((a,b)=>a+b)/areas.length;const sd=Math.sqrt(areas.reduce((a,b)=>a+(b-m)**2,0)/areas.length);cost+=.15*sd/m}
-  // hero: a vertical should take the full height, a horizontal most of the width, and nothing else may be bigger
+  // hero: fill the full height or most of the width, whichever the shape allows, and nothing else may be bigger
   if(phs.some(p=>p&&p.hero)){
     const g=geoOf(pad,R.ins||0),ar=rs.map(r=>r.w*r.h);
     rs.forEach((r,i)=>{const ph=phs[i];if(!ph||!ph.hero)return;
-      cost+=3*(1-(ph.w<=ph.h*1.05?r.h/g.ih:r.w/g.iw));if(ar.some((a,j)=>j!==i&&a>ar[i]*1.02))cost+=1.5});
+      cost+=3*(1-Math.max(r.h/g.ih,r.w/g.iw));if(ar.some((a,j)=>j!==i&&a>ar[i]*1.02))cost+=1.5});
   }
   return {cost,minKeep,maxUp,minArea};
 }
