@@ -402,7 +402,7 @@ function bestSplit(phs,R){
 }
 function ruleBreak(phs,R){
   if(!R.portrait)return false;let P=0,Lc=0;
-  phs.forEach(p=>{const o=orient(p);if(o==='P')P++;else if(o==='L')Lc++});
+  phs.forEach(p=>{const o=orient(p);if(o==='P')P++;else Lc++}); // a square partners a vertical as well as a horizontal does
   return P>0&&Lc===0&&P<3;
 }
 function hash01(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)%10007)/10007}
@@ -1271,14 +1271,22 @@ $('bShuffle').onclick=tryAnother;
 function heroPlan(hero){
   const R=rules(),cur=P(),ph=filled(cur),cache=new Map(),opts=[];
   const fit=g=>{const A=layoutFor(g,R,cache);return validPage(A,R)?A:null};
+  // the photos left for a neighbour: one image if they fit, else the cheapest split into two (+.4 for the extra image)
+  const fitN=g=>{
+    if(!g.length)return {Bs:[],c:0};const B=fit(g);if(B)return {Bs:[B],c:B.score.cost};
+    let best=null;
+    for(let m=1;m<(1<<g.length)-1;m+=2){const a=g.filter((p,i)=>m>>i&1),b=g.filter((p,i)=>!(m>>i&1)),B1=fit(a),B2=B1&&fit(b);
+      if(B2&&(!best||B1.score.cost+B2.score.cost+.4<best.c))best={Bs:[B1,B2],c:B1.score.cost+B2.score.cost+.4}}
+    return best;
+  };
   const A0=fit(ph);if(A0)opts.push({d:A0.score.cost,A:A0});
   const rest=ph.filter(p=>p!==hero),mm=momentMap(R),myM=modeOf(ph.map(p=>mm.get(p.id)));
   const near=S.pages.filter(p=>p!==cur&&!p.locked&&filled(p).length&&(!R.dates||modeOf(filled(p).map(q=>mm.get(q.id)))===myM))
     .sort((a,b)=>Math.abs(S.pages.indexOf(a)-S.active)-Math.abs(S.pages.indexOf(b)-S.active)).slice(0,8);
   for(const O of near){
     const oph=filled(O),oc=layoutFor(oph,R,cache).score.cost;
-    const pair=(np,no)=>{const A=fit(np);if(!A)return;const B=no.length?fit(no):null;if(no.length&&!B)return;opts.push({d:A.score.cost+(B?B.score.cost:0)-oc,A,O,B})};
-    for(const a of rest){if(oph.length<MAX)pair(ph.filter(p=>p!==a),[...oph,a]);for(const b of oph)pair([...ph.filter(p=>p!==a),b],[...oph.filter(p=>p!==b),a])}
+    const pair=(np,no)=>{const A=fit(np);if(!A)return;const N=fitN(no);if(!N)return;opts.push({d:A.score.cost+N.c-oc,A,O,Bs:N.Bs})};
+    for(const a of rest){if(oph.length<2*MAX-1)pair(ph.filter(p=>p!==a),[...oph,a]);for(const b of oph)pair([...ph.filter(p=>p!==a),b],[...oph.filter(p=>p!==b),a])}
     if(ph.length<MAX)for(const b of oph)pair([...ph,b],oph.filter(p=>p!==b));
   }
   for(let m=1;m<(1<<rest.length)-1;m++){
@@ -1298,10 +1306,13 @@ $('bHero').onclick=async()=>{
   const set=(page,A)=>Object.assign(page,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.id)))});
   set(pg,o.A);
   if(o.split)S.pages.splice(at+1,0,pageFrom({def:o.B.def,L:o.B.L,photos:o.B.photos.map(p=>byId.get(p.id))}));
-  else if(o.O){if(o.B)set(o.O,o.B);else S.pages.splice(S.pages.indexOf(o.O),1)}
+  else if(o.O){
+    const oi=S.pages.indexOf(o.O);if(!o.Bs.length)S.pages.splice(oi,1);else set(o.O,o.Bs[0]);
+    if(o.Bs[1])S.pages.splice(oi+1,0,pageFrom({def:o.Bs[1].def,L:o.Bs[1].L,photos:o.Bs[1].photos.map(p=>byId.get(p.id))}));
+  }
   S.active=S.pages.indexOf(pg);S.sel=pg.photos.indexOf(ph);refresh();
-  if(areaOf()<=a0*1.02&&!o.O&&!o.split){hint('It’s as big as it can get within the rules.');return}
-  toast(o.split?'Hero set; the rest moved to a new image.':o.O?'Hero set; traded with a nearby image.':'Hero set.',()=>{S.pages=before;S.active=at;S.sel=-1});
+  if(areaOf()<=a0*1.1&&!o.O&&!o.split){hint('It’s as big as it can get within the rules.');return}
+  toast(o.split?'Hero set; the rest moved to a new image.':o.O?(o.Bs[1]?'Hero set; split a nearby image.':'Hero set; traded with a nearby image.'):'Hero set.',()=>{S.pages=before;S.active=at;S.sel=-1});
 };
 $('bRemove').onclick=()=>{
   const pg=P(),at=S.active,snap=snapPage(pg);pg.photos[S.sel]=undefined;S.sel=-1;

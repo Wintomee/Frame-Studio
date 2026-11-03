@@ -81,6 +81,10 @@ moulding**, so the visible mat around the outside equals the gaps between photos
   Rules always win over the hero: with a hero on the page `scoreL` multiplies rule-violation costs by 6, and
   `bestPage` returns the cheapest layout that passes `validPage` when one exists. Without this a square hero forced
   itself to full height, broke the crop rule, and `heroPlan` found nothing valid ("can't get bigger").
+  When photos a trade sends to a neighbour don't fit there as one image, `fitN` splits them into the two cheapest
+  valid images (+.4). A gain under 10% reports "as big as it can get" instead of claiming success.
+- The portrait rule counts a **square** as a valid partner for a vertical (square + vertical fills 16:9 well); before,
+  a square hero couldn't pair with a vertical at all.
 - **Bigger photos** (`R.big`, checkbox in the Auto-arrange sheet, kept across presets): `groupCost` adds .5 per photo
   over 2. On a trip-like set it moves the average from ~2.7 to ~2.4 per image; 3s remain where moments have odd counts
   or the portrait rule needs them. A "maximise the smallest photo" variant was benchmarked and was no better.

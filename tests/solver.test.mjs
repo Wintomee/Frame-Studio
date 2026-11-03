@@ -68,6 +68,13 @@ test('hero never breaks the rules when a valid layout exists (square hero)', () 
   for (const set of [[L(0, 1), P(1, 2), sq], [L(0, 1), L(1, 2), sq]]) assert.ok(S.validPage(S.bestPage(set, R), R));
 });
 
+test('a square partners a vertical (portrait rule)', () => {
+  const sq = { id: 'Q', w: 3024, h: 3024, date: 5, hero: true }, b = S.bestPage([sq, P(1, 2)], { ...R, pad: .06 });
+  assert.ok(S.validPage(b, { ...R, pad: .06 }), 'square + vertical passes the rules');
+  const rs = S.rectsOf(b.L, .06, 0), i = b.photos.indexOf(sq);
+  assert.ok(rs[i].h >= 2160 - 2 * Math.round(.06 * 2160) - 1, 'square hero takes the full height');
+});
+
 test('bigger photos: mostly 2 per image', () => {
   const pool = []; for (let i = 0; i < 24; i++) pool.push((i % 5 < 3 ? L : P)(i * 60e3, i));
   const per = big => { const pg = S.compose(pool, { ...R, dates: 0, big }); return pool.length / pg.length; };
