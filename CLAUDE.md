@@ -135,8 +135,11 @@ Pages auto-lock when edited by hand, and recompose skips locked pages. The lock 
 sure it's needed; the code is kept for now. Decide with him before removing or exposing it.
 
 ## UI decisions already made (don't undo without asking)
-- **Import always auto-composes**, then opens the Auto-arrange sheet (presets + collapsible fine-tune + try another),
-  so rules can be changed straight away. Rules are not a tab.
+- **Import goes through a review step first** (user's request): a full-screen grid of the new batch (`openReview`,
+  `RV.list`) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Arrange N photos" then auto-composes
+  (`arrangeNew`) and opens the Auto-arrange sheet (presets + collapsible fine-tune + try another), so rules can be
+  changed straight away. Cancel drops only the new batch. `S.importing` stays on during the review so its assets aren't
+  purged. Rules are not a tab.
 - Tabs: **Layout** (the only place editing gestures work), **Frame** (preview is view-only, no handles or badges),
   **Export**. The tab bar is compact (icon and label inline, reduced bottom safe area).
 - No status/info row: messages are a transient pill at the top, and photo actions (replace, crop, reset zoom, remove)
