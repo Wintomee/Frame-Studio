@@ -74,15 +74,16 @@ moulding**, so the visible mat around the outside equals the gaps between photos
 ### Hero photo and bigger photos
 - **Hero** (star in the photo action bar, `ph.hero`, saved per photo): `scoreL` adds a cost so a vertical hero takes
   the full inner height and a horizontal one most of the width, plus a penalty if another photo is bigger. `akey` adds
-  100 for heroes so permutations and caches treat them as their own class. Tapping the star runs `heroPlan`: the
-  cheapest valid change among re-laying out the same photos, one trade (swap, move out, take in) with up to 8 nearby
-  images in the same moment, or splitting the image in two (+.4 for the extra image). Undo via the toast. Auto-arrange
-  respects heroes through the same scoring.
+  100 for heroes so permutations and caches treat them as their own class. Tapping the star runs `heroPlan`: it tries
+  the hero with every subset of its image's other photos, or with one photo (per shape, nearest in time) from up to 8
+  nearby images in the same moment, and re-arranges everything else from those images with the normal grouping
+  (`groupsOf`, sharing one cache, ~0.15 s). The user asked for this over trades/splits: displaced photos go back into
+  the pool and find a better home. The re-plan uses `R.strict` (over-max groups cost 50, not 3), never adds images that
+  break the rules, and keeps the current arrangement unless another is clearly cheaper (+.05 churn cost). Undo via the
+  toast. Auto-arrange respects heroes through the same scoring.
   Rules always win over the hero: with a hero on the page `scoreL` multiplies rule-violation costs by 6, and
-  `bestPage` returns the cheapest layout that passes `validPage` when one exists. Without this a square hero forced
-  itself to full height, broke the crop rule, and `heroPlan` found nothing valid ("can't get bigger").
-  When photos a trade sends to a neighbour don't fit there as one image, `fitN` splits them into the two cheapest
-  valid images (+.4). A gain under 10% reports "as big as it can get" instead of claiming success.
+  `bestPage` returns the cheapest layout that passes `validPage` when one exists. A gain under 10% reports "as big as
+  it can get".
 - The portrait rule counts a **square** as a valid partner for a vertical (square + vertical fills 16:9 well); before,
   a square hero couldn't pair with a vertical at all.
 - **Bigger photos** (`R.big`, checkbox in the Auto-arrange sheet, kept across presets): `groupCost` adds .5 per photo

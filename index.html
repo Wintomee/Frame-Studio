@@ -410,7 +410,7 @@ function groupCost(phs,R,cache){
   const key=phs.map(akey).sort((a,b)=>a-b).join(',');
   if(cache.has(key))return cache.get(key);
   const n=phs.length;let v=bestPage(phs,R).score.cost+.1+(R.seed?hash01(key+'|'+R.seed)*.9:0);
-  if(n<R.min)v+=3*(R.min-n);if(n>R.max)v+=3*(n-R.max);
+  if(n<R.min)v+=3*(R.min-n);if(n>R.max)v+=(R.strict?50:3)*(n-R.max); // strict: the hero re-plan never overfills
   if(ruleBreak(phs,R))v+=2;
   if(R.big)v+=.5*Math.max(0,n-2); // "bigger photos": prefer 2 per image
   cache.set(key,v);return v;
@@ -500,11 +500,12 @@ function chunksOf(sorted,budget=STATES){
   return out;
 }
 function validPage(pg,R){const s=pg.score,n=pg.photos.length;return s.minKeep>=R.minKeep-1e-6&&s.minArea>=(R.minArea??.08)-1e-6&&s.maxUp<=R.maxUp+1e-6&&!ruleBreak(pg.photos,R)&&n>=R.min&&n<=R.max}
-function compose(pool,R){
-  const sorted=[...pool].sort((a,b)=>a.date-b.date),cache=new Map();
-  const runs=R.dates?clustersOf(sorted,R):[sorted];
-  const groups=runs.flatMap(cl=>R.dates===2?solveOrdered(cl,R,cache):chunksOf(cl).flatMap(ch=>solveUnordered(ch,R,cache)));
-  return groups.map(g=>({...bestPage(g,R),broken:ruleBreak(g,R),first:Math.min(...g.map(p=>p.date))}))
+function groupsOf(pool,R,cache=new Map()){
+  const sorted=[...pool].sort((a,b)=>a.date-b.date),runs=R.dates?clustersOf(sorted,R):[sorted];
+  return runs.flatMap(cl=>R.dates===2?solveOrdered(cl,R,cache):chunksOf(cl).flatMap(ch=>solveUnordered(ch,R,cache)));
+}
+function compose(pool,R,cache=new Map()){
+  return groupsOf(pool,R,cache).map(g=>({...bestPage(g,R),broken:ruleBreak(g,R),first:Math.min(...g.map(p=>p.date))}))
     .sort((a,b)=>a.first-b.first);
 }
 /*SOLVER-END*/
@@ -1266,34 +1267,34 @@ async function tryAnother(){
 $('bShuffle').onclick=tryAnother;
 
 /* ---------- hero ---------- */
-// Re-plan the current image around its hero: same photos re-laid out, one trade with a nearby image in the same moment,
-// or splitting the image in two. Picks the cheapest change; heroes are scored in scoreL.
+// Re-plan around the hero: try the hero with each possible set of companions (from its own image, or one photo from a
+// nearby image), and re-arrange everything else from the nearby images in the same moment with the normal auto-arrange.
+// Keeps the cheapest; the current arrangement wins unless something is clearly better.
 function heroPlan(hero){
-  const R=rules(),cur=P(),ph=filled(cur),cache=new Map(),opts=[];
-  const fit=g=>{const A=layoutFor(g,R,cache);return validPage(A,R)?A:null};
-  // the photos left for a neighbour: one image if they fit, else the cheapest split into two (+.4 for the extra image)
-  const fitN=g=>{
-    if(!g.length)return {Bs:[],c:0};const B=fit(g);if(B)return {Bs:[B],c:B.score.cost};
-    let best=null;
-    for(let m=1;m<(1<<g.length)-1;m+=2){const a=g.filter((p,i)=>m>>i&1),b=g.filter((p,i)=>!(m>>i&1)),B1=fit(a),B2=B1&&fit(b);
-      if(B2&&(!best||B1.score.cost+B2.score.cost+.4<best.c))best={Bs:[B1,B2],c:B1.score.cost+B2.score.cost+.4}}
-    return best;
-  };
-  const A0=fit(ph);if(A0)opts.push({d:A0.score.cost,A:A0});
-  const rest=ph.filter(p=>p!==hero),mm=momentMap(R),myM=modeOf(ph.map(p=>mm.get(p.id)));
+  const R={...rules(),strict:true},cur=P(),ph=filled(cur),cache=new Map(),lay=new Map();
+  const fit=g=>{const A=layoutFor(g,R,lay);return validPage(A,R)?A:null};
+  const mm=momentMap(R),myM=modeOf(ph.map(p=>mm.get(p.id)));
   const near=S.pages.filter(p=>p!==cur&&!p.locked&&filled(p).length&&(!R.dates||modeOf(filled(p).map(q=>mm.get(q.id)))===myM))
     .sort((a,b)=>Math.abs(S.pages.indexOf(a)-S.active)-Math.abs(S.pages.indexOf(b)-S.active)).slice(0,8);
-  for(const O of near){
-    const oph=filled(O),oc=layoutFor(oph,R,cache).score.cost;
-    const pair=(np,no)=>{const A=fit(np);if(!A)return;const N=fitN(no);if(!N)return;opts.push({d:A.score.cost+N.c-oc,A,O,Bs:N.Bs})};
-    for(const a of rest){if(oph.length<2*MAX-1)pair(ph.filter(p=>p!==a),[...oph,a]);for(const b of oph)pair([...ph.filter(p=>p!==a),b],[...oph.filter(p=>p!==b),a])}
-    if(ph.length<MAX)for(const b of oph)pair([...ph,b],oph.filter(p=>p!==b));
+  const rest=ph.filter(p=>p!==hero),pool=near.flatMap(filled),all=[...rest,...pool];
+  const keepCost=near.reduce((a,o)=>a+groupCost(filled(o),R,cache),0),bad=g=>!fit(g);
+  const badBefore=[ph,...near.map(filled)].filter(bad).length; // a hero never adds rule-breaking images
+  const opts=[];
+  const A0=fit(ph);if(A0)opts.push({c:groupCost(ph,R,cache)+keepCost,A:A0,keep:true});
+  const byShape=new Map();pool.forEach(p=>{const k=akey(p),q=byShape.get(k);if(!q||Math.abs(p.date-hero.date)<Math.abs(q.date-hero.date))byShape.set(k,p)});
+  const comps=[];
+  for(let m=1;m<1<<rest.length;m++)comps.push(rest.filter((p,i)=>m>>i&1));
+  for(const b of byShape.values()){comps.push([b]);rest.forEach(a=>comps.push([a,b]))}
+  for(const comp of comps){
+    const A=fit([hero,...comp]);if(!A)continue;
+    const left=all.filter(p=>!comp.includes(p));if(left.length===1)continue;
+    const gs=left.length?groupsOf(left,R,cache):[];
+    if(gs.some(g=>g.length>R.max)||gs.filter(bad).length>badBefore)continue;
+    opts.push({c:groupCost([hero,...comp],R,cache)+gs.reduce((a,g)=>a+groupCost(g,R,cache),0)+.05,A,left,near}); // .05: don't churn other images for nothing
   }
-  for(let m=1;m<(1<<rest.length)-1;m++){
-    const keep=rest.filter((p,i)=>m>>i&1),out=rest.filter((p,i)=>!(m>>i&1)),A=fit([hero,...keep]),B=A&&fit(out);
-    if(B)opts.push({d:A.score.cost+B.score.cost+.4,A,B,split:true}); // .4: an extra image costs a little
-  }
-  return opts.sort((x,y)=>x.d-y.d)[0]||null;
+  const best=opts.sort((x,y)=>x.c-y.c)[0];
+  if(best&&best.left)best.pages=best.left.length?compose(best.left,R,cache):[];
+  return best||null;
 }
 $('bHero').onclick=async()=>{
   const pg=P(),ph=pg&&pg.photos[S.sel];if(!ph)return;
@@ -1305,14 +1306,17 @@ $('bHero').onclick=async()=>{
   const byId=new Map(S.pages.flatMap(filled).map(p=>[p.id,p]));
   const set=(page,A)=>Object.assign(page,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.id)))});
   set(pg,o.A);
-  if(o.split)S.pages.splice(at+1,0,pageFrom({def:o.B.def,L:o.B.L,photos:o.B.photos.map(p=>byId.get(p.id))}));
-  else if(o.O){
-    const oi=S.pages.indexOf(o.O);if(!o.Bs.length)S.pages.splice(oi,1);else set(o.O,o.Bs[0]);
-    if(o.Bs[1])S.pages.splice(oi+1,0,pageFrom({def:o.Bs[1].def,L:o.Bs[1].L,photos:o.Bs[1].photos.map(p=>byId.get(p.id))}));
+  let moved=0;
+  if(!o.keep){
+    // the nearby images are replaced by the re-arranged ones, slotted in by date where the first of them was
+    const gone=new Set(o.near),from=Math.min(...o.near.map(p=>S.pages.indexOf(p)).filter(i=>i>=0),S.pages.indexOf(pg));
+    const fresh=o.pages.map(b=>pageFrom({def:b.def,L:b.L,photos:b.photos.map(p=>byId.get(p.id))}));
+    moved=fresh.length;S.pages=S.pages.filter(p=>!gone.has(p));S.pages.splice(S.pages.indexOf(pg),1);
+    const block=[pg,...fresh].sort((a,b)=>firstDate(a)-firstDate(b));S.pages.splice(Math.min(from,S.pages.length),0,...block);
   }
   S.active=S.pages.indexOf(pg);S.sel=pg.photos.indexOf(ph);refresh();
-  if(areaOf()<=a0*1.1&&!o.O&&!o.split){hint('It’s as big as it can get within the rules.');return}
-  toast(o.split?'Hero set; the rest moved to a new image.':o.O?(o.Bs[1]?'Hero set; split a nearby image.':'Hero set; traded with a nearby image.'):'Hero set.',()=>{S.pages=before;S.active=at;S.sel=-1});
+  if(areaOf()<=a0*1.1){if(o.keep||!moved){hint('It’s as big as it can get within the rules.');return}}
+  toast(o.keep?'Hero set.':'Hero set; nearby images re-arranged.',()=>{S.pages=before;S.active=at;S.sel=-1});
 };
 $('bRemove').onclick=()=>{
   const pg=P(),at=S.active,snap=snapPage(pg);pg.photos[S.sel]=undefined;S.sel=-1;
