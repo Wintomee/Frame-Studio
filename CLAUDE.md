@@ -150,6 +150,8 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
   under the finger can't pan further that way, and that photo's pan is reverted.
 - Corner badge on each photo shows **which way it can currently be dragged** (↔, ↕ or both), not the photo's original
   orientation. It turns red with "!" when the photo is upscaled (blurry). No badge = can't move.
+  A hero shows a matching translucent ★ disc in the bottom-right corner (`heroBadge`), on the Layout tab and behind
+  the Auto-arrange sheet; not on the Frame tab or in exports.
 - Frame picker is a horizontal scroll row; options for the selected frame appear below it. Background has 5 swatches
   plus a custom colour picker.
 - Gestures: drag = pan, pinch = zoom, double-tap = reset (photo or border), hold + drag = swap, or drop on a filmstrip
