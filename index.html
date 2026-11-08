@@ -150,7 +150,7 @@ select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);b
 .opts{display:grid;gap:10px}
 .opts .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 .opts .row .chip{flex:none;white-space:nowrap}
-#labelMode{gap:6px}#labelMode .label{min-width:0;margin-right:4px}#labelMode .chip{padding:5px 10px}
+#labelMode{gap:6px}.lbltext{color:var(--text);font-size:14px;margin-top:-4px;overflow-wrap:anywhere}.lbltext.none{color:var(--muted)}#labelMode .label{min-width:0;margin-right:4px}#labelMode .chip{padding:5px 10px}
 .sw.custom{position:relative;overflow:hidden;background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#1abc9c,#3498db,#9b59b6,#e74c3c)}
 .sw.custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;border:0;padding:0}
 .sw.custom i{position:absolute;inset:7px;border-radius:50%;border:2px solid #fff;pointer-events:none}
@@ -209,7 +209,8 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
   <section class="tab" data-tab="layout">
     <div class="sugs" id="sugs"></div>
     <div class="groups" id="groups"></div>
-    <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label for this image"><span class="label">Label</span></div></div>
+    <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label for this image"><span class="label">Label</span></div>
+      <p class="note lbltext" id="labelText" aria-live="polite"></p></div>
   </section>
 
   <section class="tab" data-tab="frame" hidden>
@@ -1687,6 +1688,8 @@ LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.clas
 {const b=document.createElement('button');b.className='chip';b.dataset.m='custom';b.innerHTML='✎';b.setAttribute('aria-label','Type your own label');b.onclick=openLabelEdit;$('labelMode').appendChild(b)}
 function syncLabelMode(){
   const pg=P(),custom=!!pg&&typeof pg.label==='string';$('labelMode').hidden=!pg;
+  // the label as text: on a phone held upright the caption on the preview is too small to read
+  const t=pg?labelFor(pg):'',el=$('labelText');el.hidden=!pg;el.textContent=t||'No label';el.classList.toggle('none',!t);
   $('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',custom?b.dataset.m==='custom':b.dataset.m===((pg&&pg.lm)||'auto')));
 }
 function renderFrameOpts(){

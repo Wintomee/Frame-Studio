@@ -129,7 +129,8 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   Francie"); another country in between repeats it and keeps photo order ("Paříž, Francie · Vídeň, Rakousko · Lyon,
   Francie"). The mode is **per image** (`pg.lm`, user's request): auto (default:
   place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
-  (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image. Sets saved while the
+  (`syncLabelMode`), with ✎ for typed text. Under the row the current label is shown as read-only text (`#labelText`,
+  "No label" when empty), because the caption on the preview is too small to read on a phone held upright. Picking a mode clears typed text and locks the image. Sets saved while the
   mode was set-wide (`st.labelMode`) carry it into each image on restore.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
