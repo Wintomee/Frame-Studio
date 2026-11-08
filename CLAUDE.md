@@ -111,9 +111,10 @@ saved in state and in the export XMP, and restored by "Reopen an export".
 A caption in the bottom border, right-aligned with the photo area, e.g. "Paříž, Francie · červenec 2025". The pure logic is
 in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solver): `parsePlaces`, `placeAt`, `czDate`,
 `placeText`, `labelText`.
-- **Places** come from `places.txt` (offline, ~43k towns, 1.3 MB / 0.6 MB gzipped, cached by the service worker), built
+- **Places** come from `places.txt` (offline, ~79k towns, 2.4 MB / 1.1 MB gzipped, cached by the service worker), built
   by `tools/build-places.cjs` from the `all-the-cities` npm package (GeoNames, CC BY 4.0, credited in README). Kept:
-  CZ and neighbours from 1,000 people, rest of Europe from 5,000, world from 15,000. `placeAt` picks the nearest town
+  Europe from 1,000 people, world from 15,000 (with a 5,000 cut-off in most of Europe, Plitvice came out as Bosnia because
+  the small Croatian towns were missing). The app never reads the place names iOS shows; only GPS. `placeAt` picks the nearest town
   where a town's reach grows with √population (0.012·√pop km), so Prague's outskirts say Praha; over 60 km from anything
   gives the country only. `EXONYMS` maps common foreign cities to Czech names; countries come from
   `Intl.DisplayNames('cs')`.
