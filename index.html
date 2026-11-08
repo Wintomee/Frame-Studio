@@ -861,10 +861,20 @@ function drawBase(c,st){c.fillStyle=st.bg;c.fillRect(0,0,W,H);wall(c,st.wall||S.
 /* ---------- location label: a caption in the bottom border, right-aligned with the photos, never on a photo ---------- */
 let PLACES=null,placesP=null;
 const countryCs=(()=>{let dn=null;try{dn=new Intl.DisplayNames(['cs'],{type:'region'})}catch{}return cc=>{try{return (dn&&dn.of(cc))||cc}catch{return cc}}})();
+// The town list is a separate file, or embedded in the page as #places-data (the test build). A failed or bogus load
+// (e.g. an error page) is reported once and retried the next time a label needs it.
+let placesWarned=false,placesFailAt=0;
 function loadPlaces(){
-  return placesP||(placesP=fetch('places.txt').then(r=>r.ok?r.text():Promise.reject(new Error('places'))).then(t=>{PLACES=parsePlaces(t);refresh()}).catch(()=>{placesP=null}));
+  if(PLACES||(!placesP&&Date.now()-placesFailAt<10000))return Promise.resolve(); // at most one retry every 10 s
+  return placesP||(placesP=(async()=>{
+    const el=document.getElementById('places-data');
+    const text=el?el.textContent:await fetch('places.txt').then(r=>r.ok?r.text():Promise.reject(new Error('HTTP '+r.status)));
+    const grid=parsePlaces(text);let n=0;for(const v of grid.values())n+=v.length;
+    if(n<1000)throw new Error('the list came back empty');
+    PLACES=grid;refresh();
+  })().catch(e=>{placesP=null;placesFailAt=Date.now();if(!placesWarned){placesWarned=true;hint(`Place names couldn’t load (${e.message||e}). Labels show dates only for now.`)}}));
 }
-function placeOfPh(ph){if(!ph||ph.lat==null||!PLACES)return null;if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
+function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces();return null}if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
   const ph=filled(pg);return labelText(ph.map(placeOfPh),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
@@ -1667,7 +1677,7 @@ function syncWall(){
 // label for the current image: a mode (clears any typed text), or ✎ to type your own
 const LABEL_MODES=[['auto','Auto'],['date','Date'],['both','Place + date'],['off','Off']];
 LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.m=v;b.textContent=name;
-  b.onclick=()=>{const pg=P();if(!pg)return;pg.lm=v;delete pg.label;touched(pg);refresh()};$('labelMode').appendChild(b)});
+  b.onclick=()=>{const pg=P();if(!pg)return;pg.lm=v;delete pg.label;touched(pg);placesWarned=false;placesFailAt=0;loadPlaces();refresh()};$('labelMode').appendChild(b)});
 {const b=document.createElement('button');b.className='chip';b.dataset.m='custom';b.innerHTML='✎';b.setAttribute('aria-label','Type your own label');b.onclick=openLabelEdit;$('labelMode').appendChild(b)}
 function syncLabelMode(){
   const pg=P(),custom=!!pg&&typeof pg.label==='string';$('labelMode').hidden=!pg;
