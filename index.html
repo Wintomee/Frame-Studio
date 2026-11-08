@@ -985,7 +985,8 @@ function openReview(news){
 }
 function renderReview(){
   const g=$('rvGrid'),n=RV.list.length,h=RV.list.filter(p=>p.hero).length;g.innerHTML='';
-  $('reviewH').textContent=`${n} photo${n===1?'':'s'}`+(h?` · ${h} hero${h===1?'':'es'}`:'');
+  const geo=RV.list.filter(p=>p.lat!=null).length; // location check: does the iPhone picker keep GPS?
+  $('reviewH').textContent=`${n} photo${n===1?'':'s'} · ${geo} with location`+(h?` · ${h} hero${h===1?'':'es'}`:'');
   $('rvGo').textContent=n?`Arrange ${n} photo${n===1?'':'s'}`:'Arrange';$('rvGo').disabled=!n;
   RV.list.forEach(ph=>{
     const t=document.createElement('div');t.className='rvtile';t.setAttribute('role','button');t.setAttribute('aria-pressed',!!ph.hero);t.setAttribute('aria-label','Photo, tap to make it a hero');
