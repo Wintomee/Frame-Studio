@@ -116,12 +116,15 @@ test('label text: dates in Czech, place only abroad on auto, two places and coun
   assert.equal(LB.czDate([d(2024, 11), d(2025, 0)]), 'prosinec 2024 – leden 2025');
   assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'auto', cn), 'červen 2025');
   assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'both', cn), 'Praha · Brno · červen 2025');
-  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Paříž', 'FR'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž · Lyon, Francie · červenec 2025');
+  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Paříž', 'FR'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž & Lyon, Francie · červenec 2025');
+  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Lyon', 'FR'), P('Nice', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž · Lyon · Nice, Francie · červenec 2025');
+  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Vídeň', 'AT'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž, Francie · Vídeň, Rakousko · Lyon, Francie · červenec 2025');
+  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Lyon', 'FR'), P('Vídeň', 'AT')], [d(2025, 6)], 'auto', cn), 'Paříž & Lyon, Francie · Vídeň, Rakousko · červenec 2025');
   assert.equal(LB.labelText([P('Vídeň', 'AT'), P('Brno', 'CZ')], [d(2025, 6)], 'auto', cn), 'Vídeň, Rakousko · Brno · červenec 2025');
   assert.equal(LB.labelText([], [d(2025, 6)], 'auto', cn), 'červenec 2025');
   assert.equal(LB.labelText([P('Praha', 'CZ')], [d(2025, 6)], 'off', cn), '');
   const many = [P('Praha', 'CZ'), P('Brno', 'CZ'), P('Brno', 'CZ'), P('Olomouc', 'CZ'), P('Zlín', 'CZ')];
-  assert.equal(LB.labelText(many, [d(2025, 6)], 'both', cn), 'Brno · Praha · Olomouc · Zlín · červenec 2025');
+  assert.equal(LB.labelText(many, [d(2025, 6)], 'both', cn), 'Praha · Brno · Olomouc · Zlín · červenec 2025');
 });
 
 console.log(`\n${n} tests passed`);

@@ -590,15 +590,19 @@ function czDate(dates){
   if(a.getFullYear()!==b.getFullYear())return `${m(a)} ${a.getFullYear()} – ${m(b)} ${b.getFullYear()}`;
   return (a.getMonth()===b.getMonth()?m(a):`${m(a)} – ${m(b)}`)+' '+a.getFullYear();
 }
-// places: [{name,cc}] per photo; every place, most photos first, joined with the same " · " as the date: "Praha · Brno".
-// The country is added outside Czechia, once at the end when all places share it.
+// places: [{name,cc}] per photo in the order the photos were taken; every place once, in that order, joined with the
+// same " · " as the date. Outside Czechia a run of places in one country shares the country: "Paříž & Lyon, Francie"
+// (3+: "Paříž · Lyon · Nice, Francie"); another country in between repeats it, keeping photo order.
 function placeText(places,country){
-  const cnt=new Map();places.filter(Boolean).forEach(p=>{const k=(p.name||'')+'|'+p.cc;cnt.set(k,(cnt.get(k)||0)+1)});
-  const all=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>{const [n,cc]=k.split('|');return {n,cc}});
-  if(!all.length)return '';
-  const cc0=all[0].cc;
-  if(all.every(t=>t.cc===cc0)){const names=all.filter(t=>t.n).map(t=>t.n);return names.length?names.join(' · ')+(cc0!=='CZ'?', '+country(cc0):''):country(cc0)}
-  return all.map(t=>t.n?(t.cc==='CZ'?t.n:t.n+', '+country(t.cc)):country(t.cc)).join(' · ');
+  const seen=new Set(),all=[];
+  places.filter(Boolean).forEach(p=>{const k=(p.name||'')+'|'+p.cc;if(!seen.has(k)){seen.add(k);all.push({n:p.name,cc:p.cc})}});
+  const runs=[];all.forEach(t=>{const r=runs[runs.length-1];if(r&&r.cc===t.cc&&t.cc!=='CZ')r.items.push(t);else runs.push({cc:t.cc,items:[t]})});
+  return runs.map(r=>{
+    const names=r.items.filter(t=>t.n).map(t=>t.n);
+    if(r.cc==='CZ')return names.join(' · ');
+    if(!names.length)return country(r.cc);
+    return (names.length===2?names.join(' & '):names.join(' · '))+', '+country(r.cc);
+  }).filter(Boolean).join(' · ');
 }
 // mode: off | auto (place + date abroad, date only at home) | date | both
 function labelText(places,dates,mode,country){
@@ -878,7 +882,8 @@ function loadPlaces(){
 function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces();return null}if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  const ph=filled(pg);return labelText(ph.map(placeOfPh),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
+  const ph=[...filled(pg)].sort((a,b)=>a.date-b.date); // places in the order the photos were taken
+  return labelText(ph.map(placeOfPh),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
 }
 const LFONT=px=>`600 ${px}px Manrope,system-ui,-apple-system,sans-serif`;
 function labelBox(pad,frame){

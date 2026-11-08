@@ -123,9 +123,11 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   `places.txt`. A failed or bogus load (fewer than 1,000 places, e.g. an error page) shows one message and is retried at
   most every 10 s, and right away when a label mode is picked. Before this, a failed first load silently left labels
   date-only for good.
-- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); every place, most photos
-  first, joined with the same " · " as the date ("Brno · Praha · červen 2025"; "A & B" read badly past two places);
-  the country only outside Czechia, once at the end when all places share it. The mode is **per image** (`pg.lm`, user's request): auto (default:
+- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); every place once, in the
+  order the photos were taken, joined with the same " · " as the date ("Praha · Brno · červen 2025"). The country only
+  outside Czechia; a run of places in one country shares it ("Paříž & Lyon, Francie", 3+: "Paříž · Lyon · Nice,
+  Francie"); another country in between repeats it and keeps photo order ("Paříž, Francie · Vídeň, Rakousko · Lyon,
+  Francie"). The mode is **per image** (`pg.lm`, user's request): auto (default:
   place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
   (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image. Sets saved while the
   mode was set-wide (`st.labelMode`) carry it into each image on restore.
