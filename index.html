@@ -590,14 +590,15 @@ function czDate(dates){
   if(a.getFullYear()!==b.getFullYear())return `${m(a)} ${a.getFullYear()} – ${m(b)} ${b.getFullYear()}`;
   return (a.getMonth()===b.getMonth()?m(a):`${m(a)} – ${m(b)}`)+' '+a.getFullYear();
 }
-// places: [{name,cc}] per photo; up to the two most common, "Praha & Brno"; the country is added outside Czechia
+// places: [{name,cc}] per photo; every place, most photos first, joined with the same " · " as the date: "Praha · Brno".
+// The country is added outside Czechia, once at the end when all places share it.
 function placeText(places,country){
   const cnt=new Map();places.filter(Boolean).forEach(p=>{const k=(p.name||'')+'|'+p.cc;cnt.set(k,(cnt.get(k)||0)+1)});
-  const top=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k])=>{const [n,cc]=k.split('|');return {n,cc}});
-  if(!top.length)return '';
-  const same=top.every(t=>t.cc===top[0].cc),names=top.map(t=>t.n||country(t.cc));
-  if(same)return names.join(' & ')+(top[0].cc!=='CZ'&&top.some(t=>t.n)?', '+country(top[0].cc):'');
-  return top.map(t=>t.n?(t.cc==='CZ'?t.n:t.n+', '+country(t.cc)):country(t.cc)).join(' & ');
+  const all=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(([k])=>{const [n,cc]=k.split('|');return {n,cc}});
+  if(!all.length)return '';
+  const cc0=all[0].cc;
+  if(all.every(t=>t.cc===cc0)){const names=all.filter(t=>t.n).map(t=>t.n);return names.length?names.join(' · ')+(cc0!=='CZ'?', '+country(cc0):''):country(cc0)}
+  return all.map(t=>t.n?(t.cc==='CZ'?t.n:t.n+', '+country(t.cc)):country(t.cc)).join(' · ');
 }
 // mode: off | auto (place + date abroad, date only at home) | date | both
 function labelText(places,dates,mode,country){

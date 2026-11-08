@@ -107,7 +107,7 @@ alpha, so it takes any background colour. Sizes are in export pixels and tuned s
 65" TV. `wallMip` pre-halves the tile for the small preview to avoid shimmer. It's drawn in `drawBase` before the frame,
 saved in state and in the export XMP, and restored by "Reopen an export".
 
-### Location labels (branch `location-labels`, not merged)
+### Location labels
 A caption in the bottom border, right-aligned with the photo area, e.g. "Paříž, Francie · červenec 2025". The pure logic is
 in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solver): `parsePlaces`, `placeAt`, `czDate`,
 `placeText`, `labelText`.
@@ -123,8 +123,9 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   `places.txt`. A failed or bogus load (fewer than 1,000 places, e.g. an error page) shows one message and is retried at
   most every 10 s, and right away when a label mode is picked. Before this, a failed first load silently left labels
   date-only for good.
-- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); the two most common places,
-  "Praha & Brno"; the country only outside Czechia. The mode is **per image** (`pg.lm`, user's request): auto (default:
+- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); every place, most photos
+  first, joined with the same " · " as the date ("Brno · Praha · červen 2025"; "A & B" read badly past two places);
+  the country only outside Czechia, once at the end when all places share it. The mode is **per image** (`pg.lm`, user's request): auto (default:
   place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
   (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image. Sets saved while the
   mode was set-wide (`st.labelMode`) carry it into each image on restore.
