@@ -98,6 +98,17 @@ test('places: city outskirts say the city, Czech names, abroad gets Czech names'
   assert.deepEqual(at(48.8584, 2.2945), { name: 'Paříž', cc: 'FR' });   // Eiffel Tower
 });
 
+test('places: holiday islands by island name, mainland next to them is not', () => {
+  const at = (la, lo) => LB.placeAt(grid, la, lo);
+  assert.deepEqual(at(28.2724, -16.6425), { name: 'Tenerife', cc: 'ES' });     // Teide summit
+  assert.deepEqual(at(39.5696, 2.6502), { name: 'Mallorka', cc: 'ES' });       // Palma
+  assert.equal(at(38.1938, 15.5540).name, 'Sicílie');                          // Messina
+  assert.notEqual(at(38.1110, 15.6475).name, 'Sicílie');                       // Reggio Calabria, across the strait
+  assert.equal(at(39.6243, 19.9217).name, 'Korfu');
+  assert.notEqual(at(39.7454, 20.0207).name, 'Korfu');                         // Butrint, Albania
+  assert.equal(at(35.3387, 25.1442).name, 'Kréta');                            // Heraklion
+});
+
 test('label text: dates in Czech, place only abroad on auto, two places and countries', () => {
   const d = (y, m) => new Date(y, m, 15).getTime(), P = (name, cc) => ({ name, cc });
   assert.equal(LB.czDate([d(2025, 7), d(2025, 7)]), 'srpen 2025');

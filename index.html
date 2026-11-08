@@ -550,6 +550,17 @@ const EXONYMS={Prague:'Praha',Vienna:'Vídeň',Linz:'Linec',Graz:'Štýrský Hra
   'Wrocław':'Vratislav','Gdańsk':'Gdaňsk','Poznań':'Poznaň',Opole:'Opolí',Budapest:'Budapešť','Košice':'Košice',Athens:'Atény',
   Lisbon:'Lisabon',Copenhagen:'Kodaň',Brussels:'Brusel',Antwerpen:'Antverpy','The Hague':'Haag','Genève':'Ženeva','Zürich':'Curych',
   Luzern:'Lucern',Moscow:'Moskva',Kyiv:'Kyjev',Lviv:'Lvov',Ljubljana:'Lublaň',Belgrade:'Bělehrad',Bucharest:'Bukurešť'};
+// Holiday islands are better known by the island than by the nearest town (Teide → Tenerife, not La Guancha).
+// Boxes [lat0,lat1,lon0,lon1] are trimmed to stay off nearby mainland (Sicily stops short of Reggio Calabria, Corfu of
+// Albania); islands that hug the coast (Croatia) are left out.
+const ISLANDS=[
+  ['Tenerife','ES',27.99,28.60,-16.93,-16.11],['Gran Canaria','ES',27.73,28.19,-15.84,-15.35],['Lanzarote','ES',28.83,29.25,-13.88,-13.33],
+  ['Fuerteventura','ES',28.04,28.76,-14.53,-13.82],['La Palma','ES',28.45,28.86,-18.01,-17.71],['La Gomera','ES',28.00,28.22,-17.35,-17.09],
+  ['Madeira','PT',32.62,32.88,-17.27,-16.65],['Mallorka','ES',39.26,39.97,2.30,3.48],['Menorka','ES',39.79,40.10,3.79,4.33],
+  ['Ibiza','ES',38.83,39.12,1.15,1.62],['Sicílie','IT',36.64,38.32,12.36,15.60],['Sardinie','IT',38.85,41.31,8.10,9.85],
+  ['Korsika','FR',41.33,43.03,8.53,9.57],['Kréta','GR',34.80,35.70,23.50,26.33],['Rhodos','GR',35.86,36.47,27.68,28.25],
+  ['Korfu','GR',39.36,39.83,19.63,19.97],['Kos','GR',36.71,36.92,26.90,27.37],['Santorini','GR',36.33,36.49,25.33,25.50],
+  ['Zakynthos','GR',37.64,37.95,20.61,21.00],['Kefalonie','GR',38.03,38.50,20.33,20.83]];
 function parsePlaces(text){
   const grid=new Map();
   for(const line of text.split('\n')){
@@ -558,9 +569,10 @@ function parsePlaces(text){
   }
   return grid;
 }
-// Nearest town, where a big town covers more ground (radius grows with √population), so a photo in a city's outskirts
+// Otherwise the nearest town, where a big town covers more ground (radius grows with √population), so a photo in a city's outskirts
 // says the city, not the village next door. Over 60 km from anything: country only.
 function placeAt(grid,lat,lon){
+  const isl=ISLANDS.find(([,,a,b,c,d])=>lat>=a&&lat<=b&&lon>=c&&lon<=d);if(isl)return {name:isl[0],cc:isl[1]};
   let best=null,bs=Infinity;
   for(let r=1;r<=2&&!best;r++)for(let i=-r;i<=r;i++)for(let j=-r;j<=r;j++){
     for(const p of grid.get((Math.floor(lat)+i)+','+(Math.floor(lon)+j))||[]){

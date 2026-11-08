@@ -116,7 +116,8 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   Europe from 1,000 people, world from 15,000 (with a 5,000 cut-off in most of Europe, Plitvice came out as Bosnia because
   the small Croatian towns were missing). The app never reads the place names iOS shows; only GPS. `placeAt` picks the nearest town
   where a town's reach grows with √population (0.012·√pop km), so Prague's outskirts say Praha; over 60 km from anything
-  gives the country only. `EXONYMS` maps common foreign cities to Czech names; countries come from
+  gives the country only. Popular holiday islands (`ISLANDS`, trimmed boxes, Czech names) win over towns: Teide →
+  "Tenerife", not "La Guancha". Croatian islands are left out (too close to the mainland for boxes). `EXONYMS` maps common foreign cities to Czech names; countries come from
   `Intl.DisplayNames('cs')`.
 - **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); the two most common places,
   "Praha & Brno"; the country only outside Czechia. Modes `S.labelMode`: off / **auto (default: place + date abroad,
