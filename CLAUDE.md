@@ -107,6 +107,27 @@ alpha, so it takes any background colour. Sizes are in export pixels and tuned s
 65" TV. `wallMip` pre-halves the tile for the small preview to avoid shimmer. It's drawn in `drawBase` before the frame,
 saved in state and in the export XMP, and restored by "Reopen an export".
 
+### Location labels (branch `location-labels`, not merged)
+A caption in the bottom border, right-aligned with the photo area, e.g. "Paříž, Francie · červenec 2025". The pure logic is
+in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solver): `parsePlaces`, `placeAt`, `czDate`,
+`placeText`, `labelText`.
+- **Places** come from `places.txt` (offline, ~43k towns, 1.3 MB / 0.6 MB gzipped, cached by the service worker), built
+  by `tools/build-places.cjs` from the `all-the-cities` npm package (GeoNames, CC BY 4.0, credited in README). Kept:
+  CZ and neighbours from 1,000 people, rest of Europe from 5,000, world from 15,000. `placeAt` picks the nearest town
+  where a town's reach grows with √population (0.012·√pop km), so Prague's outskirts say Praha; over 60 km from anything
+  gives the country only. `EXONYMS` maps common foreign cities to Czech names; countries come from
+  `Intl.DisplayNames('cs')`.
+- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); the two most common places,
+  "Praha & Brno"; the country only outside Czechia. Modes `S.labelMode`: off / **auto (default: place + date abroad,
+  date only at home)** / date / both.
+- **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
+  deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
+- **Editing**: tap the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text, locks the image),
+  Hide (`pg.label=''`), Automatic (deletes `pg.label`). An image without a label shows a faint "+ Label" there.
+- **Saved** in state (`labelMode`, `pg.label`) and in the export XMP (`label`, restored by Reopen). Export metadata is
+  now UTF-8 before base64 (btoa threw on Czech letters).
+- Verified on the user's iPhone (artifact test page, photo library): 17/17 photos kept GPS.
+
 ### Export and reframe
 - Export renders the base, then each photo from its **full-resolution file**, decoded one at a time to save memory.
   The output is a JPEG at quality 0.92.

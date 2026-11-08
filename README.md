@@ -42,3 +42,7 @@ python tests/e2e_smoke.py         # headless iPhone-size smoke test (needs playw
 
 Export → images go to the share sheet → **Save Images** to Photos → SmartThings app → Art Mode → upload.
 In Art Mode set the matte to **None**, otherwise the TV adds its own border on top of the app's frame.
+
+## Credits
+
+Town names for location labels: [GeoNames](https://www.geonames.org/) (CC BY 4.0), via the `all-the-cities` package.

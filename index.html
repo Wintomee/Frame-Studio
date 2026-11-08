@@ -149,6 +149,7 @@ select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);b
 .fcard{flex:0 0 128px}
 .opts{display:grid;gap:10px}
 .opts .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.opts .row .chip{flex:none;white-space:nowrap}
 .sw.custom{position:relative;overflow:hidden;background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#1abc9c,#3498db,#9b59b6,#e74c3c)}
 .sw.custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;border:0;padding:0}
 .sw.custom i{position:absolute;inset:7px;border-radius:50%;border:2px solid #fff;pointer-events:none}
@@ -187,6 +188,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card ul{margin:0;padding:0;list-style:none;display:grid;gap:10px;font-size:14px}
 .card li{display:grid;grid-template-columns:96px 1fr;gap:8px}
 .card li b{color:var(--accent)}
+input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;-webkit-user-select:text;user-select:text}
 </style>
 </head>
 <body>
@@ -214,6 +216,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="row" id="swatches" role="group" aria-label="Background"><span class="label">Background</span></div>
     <div class="opts"><div class="row" id="walls" role="group" aria-label="Wall"><span class="label">Wall</span></div>
       <div class="row" id="wallDepth" role="group" aria-label="Wall depth" hidden><span class="label">Depth</span></div></div>
+    <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label"><span class="label">Label</span></div></div>
     <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="6" aria-label="Padding"><span class="val" id="padVal">6%</span></div>
   </section>
 
@@ -272,6 +275,13 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 <nav class="tabbar" role="tablist"><div class="wrap" id="tabs"></div></nav>
 
 <canvas class="ghost" id="ghost" width="1" height="1"></canvas>
+<div class="modal" id="lblEdit" hidden>
+  <div class="card" role="dialog" aria-labelledby="lblH">
+    <h3 id="lblH">Label for this image</h3>
+    <input type="text" id="lblIn" autocomplete="off" enterkeyhint="done" aria-label="Label text">
+    <div class="row"><button class="btn" id="lblHide">Hide</button><button class="btn" id="lblAuto">Automatic</button><span class="spacer"></span><button class="btn primary" id="lblSave">Save</button></div>
+  </div>
+</div>
 <div class="modal" id="tour" hidden>
   <div class="card" role="dialog" aria-labelledby="tourH">
     <h3 id="tourH">Gestures on the preview</h3>
@@ -529,6 +539,61 @@ function compose(pool,R,cache=new Map()){
     .sort((a,b)=>a.first-b.first);
 }
 /*SOLVER-END*/
+/*LABELS-START*/
+/* Location labels: offline place lookup (places.txt, GeoNames towns) and the caption text. Pure, unit-tested. */
+const CZ_MONTHS=['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
+// Czech names for foreign places the user is likely to visit; the town list has English or local names
+const EXONYMS={Prague:'Praha',Vienna:'Vídeň',Linz:'Linec',Graz:'Štýrský Hradec',Salzburg:'Salcburk',Munich:'Mnichov',Dresden:'Drážďany',
+  'Nürnberg':'Norimberk','Köln':'Kolín nad Rýnem',Berlin:'Berlín',Leipzig:'Lipsko',Regensburg:'Řezno',Passau:'Pasov',Zittau:'Žitava',
+  'Frankfurt am Main':'Frankfurt nad Mohanem',Paris:'Paříž',Strasbourg:'Štrasburk',Rome:'Řím',Venice:'Benátky',Florence:'Florencie',
+  Milan:'Milán',Naples:'Neapol',Turin:'Turín',Genoa:'Janov',Trieste:'Terst',London:'Londýn',Warsaw:'Varšava','Kraków':'Krakov',
+  'Wrocław':'Vratislav','Gdańsk':'Gdaňsk','Poznań':'Poznaň',Opole:'Opolí',Budapest:'Budapešť','Košice':'Košice',Athens:'Atény',
+  Lisbon:'Lisabon',Copenhagen:'Kodaň',Brussels:'Brusel',Antwerpen:'Antverpy','The Hague':'Haag','Genève':'Ženeva','Zürich':'Curych',
+  Luzern:'Lucern',Moscow:'Moskva',Kyiv:'Kyjev',Lviv:'Lvov',Ljubljana:'Lublaň',Belgrade:'Bělehrad',Bucharest:'Bukurešť'};
+function parsePlaces(text){
+  const grid=new Map();
+  for(const line of text.split('\n')){
+    if(!line)continue;const [name,cc,la,lo,pop]=line.split('|'),p={name:EXONYMS[name]||name,cc,lat:la/1000,lon:lo/1000,pop:+pop};
+    const k=Math.floor(p.lat)+','+Math.floor(p.lon);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(p);
+  }
+  return grid;
+}
+// Nearest town, where a big town covers more ground (radius grows with √population), so a photo in a city's outskirts
+// says the city, not the village next door. Over 60 km from anything: country only.
+function placeAt(grid,lat,lon){
+  let best=null,bs=Infinity;
+  for(let r=1;r<=2&&!best;r++)for(let i=-r;i<=r;i++)for(let j=-r;j<=r;j++){
+    for(const p of grid.get((Math.floor(lat)+i)+','+(Math.floor(lon)+j))||[]){
+      const d=kmBetween({lat,lon},p),s=Math.max(0,d-.012*Math.sqrt(p.pop));
+      if(s<bs||(s===bs&&p.pop>best.pop)){bs=s;best=p}
+    }
+  }
+  if(!best)return null;
+  return bs>60?{name:null,cc:best.cc}:{name:best.name,cc:best.cc};
+}
+function czDate(dates){
+  const ds=dates.filter(d=>d>0).map(d=>new Date(d));if(!ds.length)return '';
+  const a=new Date(Math.min(...ds)),b=new Date(Math.max(...ds)),m=d=>CZ_MONTHS[d.getMonth()];
+  if(a.getFullYear()!==b.getFullYear())return `${m(a)} ${a.getFullYear()} – ${m(b)} ${b.getFullYear()}`;
+  return (a.getMonth()===b.getMonth()?m(a):`${m(a)} – ${m(b)}`)+' '+a.getFullYear();
+}
+// places: [{name,cc}] per photo; up to the two most common, "Praha & Brno"; the country is added outside Czechia
+function placeText(places,country){
+  const cnt=new Map();places.filter(Boolean).forEach(p=>{const k=(p.name||'')+'|'+p.cc;cnt.set(k,(cnt.get(k)||0)+1)});
+  const top=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k])=>{const [n,cc]=k.split('|');return {n,cc}});
+  if(!top.length)return '';
+  const same=top.every(t=>t.cc===top[0].cc),names=top.map(t=>t.n||country(t.cc));
+  if(same)return names.join(' & ')+(top[0].cc!=='CZ'&&top.some(t=>t.n)?', '+country(top[0].cc):'');
+  return top.map(t=>t.n?(t.cc==='CZ'?t.n:t.n+', '+country(t.cc)):country(t.cc)).join(' & ');
+}
+// mode: off | auto (place + date abroad, date only at home) | date | both
+function labelText(places,dates,mode,country){
+  if(mode==='off')return '';
+  const d=czDate(dates),pl=placeText(places,country),abroad=places.some(p=>p&&p.cc!=='CZ');
+  const wantPlace=mode==='both'||(mode==='auto'&&abroad);
+  return wantPlace&&pl?(d?pl+' · '+d:pl):d;
+}
+/*LABELS-END*/
 
 const $=id=>document.getElementById(id);
 const tick=(ms=30)=>new Promise(r=>setTimeout(r,ms));
@@ -580,7 +645,7 @@ const PRESETS={
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},labelMode:'auto',frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
@@ -588,7 +653,7 @@ const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage');
 const P=()=>S.pages[S.active];
 const Lof=pg=>({cells:pg.cells,x:pg.x,y:pg.y});
 const filled=pg=>pg.photos.filter(Boolean);
-const stOf=(pg,frame=S.frame,bg=S.bg,pad=S.pad)=>({L:Lof(pg),photos:pg.photos,pad,bg,wall:S.wall,frame});
+const stOf=(pg,frame=S.frame,bg=S.bg,pad=S.pad)=>({L:Lof(pg),photos:pg.photos,pad,bg,wall:S.wall,frame,label:labelFor(pg)});
 const rects=()=>rectsOf(Lof(P()),S.pad,insOf(S.frame));
 const rules=()=>({...S.rules,pad:S.pad,ins:insOf(S.frame)});
 let uidN=0;const newId=()=>Date.now().toString(36)+(uidN++).toString(36)+Math.random().toString(36).slice(2,6);
@@ -779,7 +844,31 @@ function badge(c,ph,r,k){
   else{c.beginPath();c.moveTo(cx,cy-6*k);c.lineTo(cx,cy+1.5*k);c.stroke();c.beginPath();c.arc(cx,cy+5*k,1.3*k,0,Math.PI*2);c.fill()}
 }
 
-function drawBase(c,st){c.fillStyle=st.bg;c.fillRect(0,0,W,H);wall(c,st.wall||S.wall);FRAMES[st.frame](c,st,geoOf(st.pad,insOf(st.frame)),rectsOf(st.L,st.pad,insOf(st.frame)))}
+function drawBase(c,st){c.fillStyle=st.bg;c.fillRect(0,0,W,H);wall(c,st.wall||S.wall);FRAMES[st.frame](c,st,geoOf(st.pad,insOf(st.frame)),rectsOf(st.L,st.pad,insOf(st.frame)));drawLabel(c,st,st.label)}
+/* ---------- location label: a caption in the bottom border, right-aligned with the photos, never on a photo ---------- */
+let PLACES=null,placesP=null;
+const countryCs=(()=>{let dn=null;try{dn=new Intl.DisplayNames(['cs'],{type:'region'})}catch{}return cc=>{try{return (dn&&dn.of(cc))||cc}catch{return cc}}})();
+function loadPlaces(){
+  return placesP||(placesP=fetch('places.txt').then(r=>r.ok?r.text():Promise.reject(new Error('places'))).then(t=>{PLACES=parsePlaces(t);refresh()}).catch(()=>{placesP=null}));
+}
+function placeOfPh(ph){if(!ph||ph.lat==null||!PLACES)return null;if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
+function labelFor(pg){
+  if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
+  const ph=filled(pg);return labelText(ph.map(placeOfPh),ph.map(p=>p.date),S.labelMode,countryCs);
+}
+const LFONT=px=>`600 ${px}px Manrope,system-ui,-apple-system,sans-serif`;
+function labelBox(pad,frame){
+  const ins=insOf(frame),g=geoOf(pad,ins),size=g.p*(frame==='deco'?.24:.3); // art deco lines run through the border
+  return {x:W-g.o,y:H-ins-g.p/2,size,ok:size>=16,x0:W*.45,x1:W-ins,y0:H-g.o,y1:H-ins};
+}
+function drawLabel(c,st,text,ghost){
+  if(!text)return;const b=labelBox(st.pad,st.frame);if(!b.ok)return;
+  c.save();c.font=LFONT(b.size);c.textAlign='right';c.textBaseline='middle';
+  const w=c.measureText(text).width,max=W*.5;if(w>max)c.font=LFONT(b.size*max/w);
+  const light=isLight(st.bg);c.fillStyle=ghost?(light?'rgba(0,0,0,.22)':'rgba(255,255,255,.28)'):(light?'rgba(0,0,0,.55)':'rgba(255,255,255,.62)');
+  c.fillText(text,b.x,b.y);c.restore();
+}
+const inLabel=p=>{const b=labelBox(S.pad,S.frame);return b.ok&&p.x>=b.x0&&p.x<=b.x1&&p.y>=b.y0&&p.y<=b.y1};
 function drawPhoto(c,ph,img,r){
   const pl=place(ph,r),cr=ph.crop;c.save();c.beginPath();c.rect(r.x,r.y,r.w,r.h);c.clip();
   if(cr){const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;c.drawImage(img,cr.x*iw,cr.y*ih,cr.w*iw,cr.h*ih,pl.x,pl.y,pl.w,pl.h)}
@@ -803,6 +892,7 @@ function drawPreview(c,st,overlay){
     if(overlay&&i===S.sel&&ph){c.strokeStyle='#4a90d9';c.lineWidth=3*k;c.strokeRect(r.x+1.5*k,r.y+1.5*k,r.w-3*k,r.h-3*k)}
   });
   if(!overlay)return;
+  if(!st.label&&S.labelMode!=='off')drawLabel(c,st,'+ Label',true);
   if(G&&G.swap){
     const s=rs[G.i],t=G.target;
     c.fillStyle='rgba(0,0,0,.45)';c.fillRect(s.x,s.y,s.w,s.h);
@@ -886,8 +976,8 @@ async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'
 let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveState,700)}
 async function saveState(){
   try{
-    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,labelMode:S.labelMode,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -897,7 +987,7 @@ async function restore(){
   try{
     const st=await DB.get('kv','state');if(!st||!st.pages||!st.pages.length)return false;
     hint('Restoring your set…');
-    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
+    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},labelMode:st.labelMode||S.labelMode,frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
     if(S.rules.dates===undefined)S.rules.dates=S.rules.order?2:1;delete S.rules.order;setPad(st.pad??S.pad);
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
     const pages=[];
@@ -1132,7 +1222,7 @@ function endPtr(e){
       else lastTap={t:now,key};
     }else{
       const i=G.i;
-      if(i<0)S.sel=-1;
+      if(i<0){S.sel=-1;if(S.labelMode!=='off'&&inLabel(G.start))openLabelEdit()}
       else if(!pg.photos[i])pickCell(i);
       else{const key='c'+i;if(lastTap.key===key&&now-lastTap.t<330){resetCrop(i);lastTap={t:0,key:''}}else lastTap={t:now,key}}
     }
@@ -1383,13 +1473,21 @@ function syncRot(){stage.classList.toggle('rot',stage.classList.contains('full')
 addEventListener('resize',syncRot);
 $('bFull').onclick=()=>setFull(true);$('bFsClose').onclick=()=>setFull(false);
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){setFull(false);$('tour').hidden=true}
+  if(e.key==='Escape'){setFull(false);$('tour').hidden=true;closeLabel()}
   if(stage.classList.contains('full')&&(e.key==='ArrowLeft'||e.key==='ArrowRight'))goPage(e.key==='ArrowLeft'?-1:1);
 });
 function goPage(d){const n=clamp(S.active+d,0,S.pages.length-1);if(n===S.active)return;S.active=n;S.sel=-1;refresh()}
 $('fsPrev').onclick=()=>goPage(-1);$('fsNext').onclick=()=>goPage(1);
 function syncFs(){$('fsPrev').disabled=S.active<=0;$('fsNext').disabled=S.active>=S.pages.length-1;$('fsCount').textContent=S.pages.length?`${S.active+1} / ${S.pages.length}`:''}
 function showTour(){$('tour').hidden=false}
+function openLabelEdit(){const pg=P();if(!pg)return;$('lblIn').value=labelFor(pg);$('lblEdit').hidden=false;setTimeout(()=>$('lblIn').focus(),60)}
+const closeLabel=()=>{$('lblEdit').hidden=true};
+const setLabel=v=>{const pg=P();if(!pg)return;if(v===undefined)delete pg.label;else{pg.label=v;touched(pg)}closeLabel();refresh()};
+$('lblSave').onclick=()=>setLabel($('lblIn').value.trim());
+$('lblHide').onclick=()=>setLabel('');
+$('lblAuto').onclick=()=>setLabel(undefined);
+$('lblIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('lblSave').click()});
+$('lblEdit').onclick=e=>{if(e.target.id==='lblEdit')closeLabel()};
 $('bHelp').onclick=showTour;$('tourOk').onclick=()=>$('tour').hidden=true;
 $('tour').onclick=e=>{if(e.target.id==='tour')$('tour').hidden=true};
 
@@ -1535,7 +1633,7 @@ swWrap.insertAdjacentHTML('beforeend','<label class="sw custom" title="Custom co
 $('bgPick').addEventListener('input',e=>{S.bg=e.target.value;syncSw();render()});
 $('bgPick').addEventListener('change',e=>{S.bg=e.target.value;refresh()});
 function syncSw(){
-  syncWall();
+  syncWall();syncLabelMode();
   swWrap.querySelectorAll('.sw[data-c]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===S.bg));
   const custom=!BGS.includes(S.bg),lab=swWrap.querySelector('.sw.custom');lab.setAttribute('aria-pressed',custom);
   lab.querySelector('i').style.background=custom?S.bg:'transparent';if(custom&&$('bgPick').value!==S.bg)$('bgPick').value=S.bg;
@@ -1553,6 +1651,10 @@ function syncWall(){
   wallWrap.querySelectorAll('.wchip canvas').forEach(cv=>{const x=cv.getContext('2d'),id=cv.parentNode.dataset.w;
     x.setTransform(1,0,0,1,0,0);x.fillStyle=S.bg;x.fillRect(0,0,44,44);x.setTransform(.16,0,0,.16,0,0);wall(x,{kind:id,depth:S.wall.depth})});
 }
+const LABEL_MODES=[['off','Off'],['auto','Auto'],['date','Date'],['both','Place + date']];
+LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.m=v;b.textContent=name;
+  b.onclick=()=>{S.labelMode=v;if(v!=='off')loadPlaces();refresh()};$('labelMode').appendChild(b)});
+function syncLabelMode(){$('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===S.labelMode))}
 function renderFrameOpts(){
   const wrap=$('fopts');wrap.innerHTML='';
   (FOPTS[S.frame]||[]).forEach(([key,label,choices])=>{
@@ -1618,7 +1720,7 @@ $('bSheetDone').onclick=()=>{$('sheet').hidden=true};
 /* ---------- export tab ---------- */
 function u8(...parts){const n=parts.reduce((a,p)=>a+p.length,0),o=new Uint8Array(n);let i=0;parts.forEach(p=>{o.set(p,i);i+=p.length});return o}
 async function withMeta(blob,meta){
-  const buf=new Uint8Array(await blob.arrayBuffer()),b64=btoa(JSON.stringify(meta)),enc=new TextEncoder();
+  const buf=new Uint8Array(await blob.arrayBuffer()),enc=new TextEncoder(),b64=btoa(Array.from(enc.encode(JSON.stringify(meta)),c=>String.fromCharCode(c)).join('')); // UTF-8 first: labels have Czech letters
   const xmp=`<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:fl="https://framelayout.app/ns/1/" fl:layout="${b64}"/></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
   const seg=(marker,payload)=>{const len=payload.length+2;return u8(new Uint8Array([0xFF,marker,len>>8,len&255]),payload)};
   const app1=seg(0xE1,u8(enc.encode('http://ns.adobe.com/xap/1.0/\0'),enc.encode(xmp))),com=seg(0xFE,enc.encode('FRAMELAYOUT:'+b64));
@@ -1628,7 +1730,7 @@ async function withMeta(blob,meta){
 function readMeta(buf){
   const s=new TextDecoder('latin1').decode(new Uint8Array(buf,0,Math.min(buf.byteLength,300000)));
   const m=s.match(/fl:layout="([A-Za-z0-9+/=]+)"/)||s.match(/FRAMELAYOUT:([A-Za-z0-9+/=]+)/);
-  if(!m)return null;try{return JSON.parse(atob(m[1]))}catch{return null}
+  if(!m)return null;try{return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(m[1]),c=>c.charCodeAt(0))))}catch{return null}
 }
 
 async function renderExport(st){
@@ -1637,7 +1739,7 @@ async function renderExport(st){
   const rs=rectsOf(st.L,st.pad,insOf(st.frame));
   for(let i=0;i<rs.length;i++){const ph=st.photos[i];const img=await fullOf(ph);drawPhoto(x,ph,img,rs[i]);freeImg(img)}
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));c.width=c.height=1;
-  return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,wall:st.wall,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs});
+  return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,wall:st.wall,label:st.label,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs});
 }
 const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
 const complete=pg=>pg.cells.every((c,j)=>pg.photos[j]);
@@ -1651,6 +1753,7 @@ function syncExport(){
 }
 async function exportPages(list){
   const dl=await dlP,items=[];READY=null;syncExport();
+  if(S.labelMode!=='off')await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
     const pg=list[i];items.push({blob:await renderExport(stOf(pg)),name:fname(S.pages.indexOf(pg))});
@@ -1688,7 +1791,7 @@ $('exportFile').addEventListener('change',async e=>{
     }
     freeImg(im);
     const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
-    const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};
+    const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};if(typeof meta.label==='string')pg.label=meta.label;
     if(!S.pages.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
     S.pages.push(pg);S.active=S.pages.length-1;S.sel=-1;refresh();
     hint('Reopened. Pick a new frame and export again.');
@@ -1708,7 +1811,8 @@ function refresh(){
   localStorage_set('restoring','1');
   const ok=await restore();
   localStorage_set('restoring','0');
-
+  if(S.labelMode!=='off')loadPlaces();
+  document.fonts.load(LFONT(40)).then(render).catch(()=>{});
   refresh();
 })();
 </script>

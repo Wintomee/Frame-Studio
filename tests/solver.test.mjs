@@ -82,4 +82,33 @@ test('bigger photos: mostly 2 per image', () => {
   assert.ok(b < a && b <= 2.5, `avg per image ${a.toFixed(2)} → ${b.toFixed(2)}`);
 });
 
+// location labels: the LABELS block uses kmBetween from the solver
+const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText};')();
+const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
+const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
+
+test('places: city outskirts say the city, Czech names, abroad gets Czech names', () => {
+  const at = (la, lo) => LB.placeAt(grid, la, lo);
+  assert.equal(at(50.0875, 14.4213).name, 'Praha');            // Old Town Square
+  assert.equal(at(50.1003, 14.3415).name, 'Praha');            // Prague 6, next to Horoměřice
+  assert.equal(at(49.1951, 16.6068).name, 'Brno');
+  assert.equal(at(48.8106, 14.3154).name, 'Český Krumlov');
+  assert.deepEqual(at(48.2082, 16.3738), { name: 'Vídeň', cc: 'AT' });
+  assert.deepEqual(at(48.8584, 2.2945), { name: 'Paříž', cc: 'FR' });   // Eiffel Tower
+});
+
+test('label text: dates in Czech, place only abroad on auto, two places and countries', () => {
+  const d = (y, m) => new Date(y, m, 15).getTime(), P = (name, cc) => ({ name, cc });
+  assert.equal(LB.czDate([d(2025, 7), d(2025, 7)]), 'srpen 2025');
+  assert.equal(LB.czDate([d(2025, 7), d(2025, 8)]), 'srpen – září 2025');
+  assert.equal(LB.czDate([d(2024, 11), d(2025, 0)]), 'prosinec 2024 – leden 2025');
+  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'auto', cn), 'červen 2025');
+  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'both', cn), 'Praha & Brno · červen 2025');
+  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Paříž', 'FR'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž & Lyon, Francie · červenec 2025');
+  assert.equal(LB.labelText([P('Vídeň', 'AT'), P('Brno', 'CZ')], [d(2025, 6)], 'auto', cn), 'Vídeň, Rakousko & Brno · červenec 2025');
+  assert.equal(LB.labelText([], [d(2025, 6)], 'auto', cn), 'červenec 2025');
+  assert.equal(LB.labelText([P('Praha', 'CZ')], [d(2025, 6)], 'off', cn), '');
+});
+
 console.log(`\n${n} tests passed`);

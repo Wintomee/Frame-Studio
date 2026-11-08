@@ -1,7 +1,7 @@
 // Frame Studio service worker: app shell works offline; photos never leave the device.
 // Bump VERSION whenever index.html (or any shell file) changes so phones pick up the update.
-const VERSION = 'fs-v12';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
+const VERSION = 'fs-v13';
+const SHELL = ['./', './index.html', './places.txt', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
