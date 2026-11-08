@@ -150,6 +150,7 @@ select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);b
 .opts{display:grid;gap:10px}
 .opts .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 .opts .row .chip{flex:none;white-space:nowrap}
+#labelMode{gap:6px}#labelMode .label{min-width:0;margin-right:4px}#labelMode .chip{padding:5px 10px}
 .sw.custom{position:relative;overflow:hidden;background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#1abc9c,#3498db,#9b59b6,#e74c3c)}
 .sw.custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;border:0;padding:0}
 .sw.custom i{position:absolute;inset:7px;border-radius:50%;border:2px solid #fff;pointer-events:none}
@@ -208,6 +209,7 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
   <section class="tab" data-tab="layout">
     <div class="sugs" id="sugs"></div>
     <div class="groups" id="groups"></div>
+    <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label for this image"><span class="label">Label</span></div></div>
   </section>
 
   <section class="tab" data-tab="frame" hidden>
@@ -216,7 +218,6 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     <div class="row" id="swatches" role="group" aria-label="Background"><span class="label">Background</span></div>
     <div class="opts"><div class="row" id="walls" role="group" aria-label="Wall"><span class="label">Wall</span></div>
       <div class="row" id="wallDepth" role="group" aria-label="Wall depth" hidden><span class="label">Depth</span></div></div>
-    <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label"><span class="label">Label</span></div></div>
     <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="6" aria-label="Padding"><span class="val" id="padVal">6%</span></div>
   </section>
 
@@ -279,7 +280,7 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
   <div class="card" role="dialog" aria-labelledby="lblH">
     <h3 id="lblH">Label for this image</h3>
     <input type="text" id="lblIn" autocomplete="off" enterkeyhint="done" aria-label="Label text">
-    <div class="row"><button class="btn" id="lblHide">Hide</button><button class="btn" id="lblAuto">Automatic</button><span class="spacer"></span><button class="btn primary" id="lblSave">Save</button></div>
+    <div class="row"><button class="btn" id="lblCancel">Cancel</button><button class="btn" id="lblAuto">Automatic</button><span class="spacer"></span><button class="btn primary" id="lblSave">Save</button></div>
   </div>
 </div>
 <div class="modal" id="tour" hidden>
@@ -657,7 +658,7 @@ const PRESETS={
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},labelMode:'auto',frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
@@ -866,7 +867,7 @@ function loadPlaces(){
 function placeOfPh(ph){if(!ph||ph.lat==null||!PLACES)return null;if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  const ph=filled(pg);return labelText(ph.map(placeOfPh),ph.map(p=>p.date),S.labelMode,countryCs);
+  const ph=filled(pg);return labelText(ph.map(placeOfPh),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
 }
 const LFONT=px=>`600 ${px}px Manrope,system-ui,-apple-system,sans-serif`;
 function labelBox(pad,frame){
@@ -904,7 +905,7 @@ function drawPreview(c,st,overlay){
     if(overlay&&i===S.sel&&ph){c.strokeStyle='#4a90d9';c.lineWidth=3*k;c.strokeRect(r.x+1.5*k,r.y+1.5*k,r.w-3*k,r.h-3*k)}
   });
   if(!overlay)return;
-  if(!st.label&&S.labelMode!=='off')drawLabel(c,st,'+ Label',true);
+  if(!st.label&&(P()||{}).lm!=='off')drawLabel(c,st,'+ Label',true);
   if(G&&G.swap){
     const s=rs[G.i],t=G.target;
     c.fillStyle='rgba(0,0,0,.45)';c.fillRect(s.x,s.y,s.w,s.h);
@@ -988,8 +989,8 @@ async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'
 let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveState,700)}
 async function saveState(){
   try{
-    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,labelMode:S.labelMode,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lm:pg.lm,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -999,7 +1000,7 @@ async function restore(){
   try{
     const st=await DB.get('kv','state');if(!st||!st.pages||!st.pages.length)return false;
     hint('Restoring your set…');
-    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},labelMode:st.labelMode||S.labelMode,frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
+    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
     if(S.rules.dates===undefined)S.rules.dates=S.rules.order?2:1;delete S.rules.order;setPad(st.pad??S.pad);
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
     const pages=[];
@@ -1234,7 +1235,7 @@ function endPtr(e){
       else lastTap={t:now,key};
     }else{
       const i=G.i;
-      if(i<0){S.sel=-1;if(S.labelMode!=='off'&&inLabel(G.start))openLabelEdit()}
+      if(i<0){S.sel=-1;if(inLabel(G.start))openLabelEdit()}
       else if(!pg.photos[i])pickCell(i);
       else{const key='c'+i;if(lastTap.key===key&&now-lastTap.t<330){resetCrop(i);lastTap={t:0,key:''}}else lastTap={t:now,key}}
     }
@@ -1496,7 +1497,7 @@ function openLabelEdit(){const pg=P();if(!pg)return;$('lblIn').value=labelFor(pg
 const closeLabel=()=>{$('lblEdit').hidden=true};
 const setLabel=v=>{const pg=P();if(!pg)return;if(v===undefined)delete pg.label;else{pg.label=v;touched(pg)}closeLabel();refresh()};
 $('lblSave').onclick=()=>setLabel($('lblIn').value.trim());
-$('lblHide').onclick=()=>setLabel('');
+$('lblCancel').onclick=closeLabel;
 $('lblAuto').onclick=()=>setLabel(undefined);
 $('lblIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('lblSave').click()});
 $('lblEdit').onclick=e=>{if(e.target.id==='lblEdit')closeLabel()};
@@ -1663,10 +1664,15 @@ function syncWall(){
   wallWrap.querySelectorAll('.wchip canvas').forEach(cv=>{const x=cv.getContext('2d'),id=cv.parentNode.dataset.w;
     x.setTransform(1,0,0,1,0,0);x.fillStyle=S.bg;x.fillRect(0,0,44,44);x.setTransform(.16,0,0,.16,0,0);wall(x,{kind:id,depth:S.wall.depth})});
 }
-const LABEL_MODES=[['off','Off'],['auto','Auto'],['date','Date'],['both','Place + date']];
+// label for the current image: a mode (clears any typed text), or ✎ to type your own
+const LABEL_MODES=[['auto','Auto'],['date','Date'],['both','Place + date'],['off','Off']];
 LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.m=v;b.textContent=name;
-  b.onclick=()=>{S.labelMode=v;if(v!=='off')loadPlaces();refresh()};$('labelMode').appendChild(b)});
-function syncLabelMode(){$('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===S.labelMode))}
+  b.onclick=()=>{const pg=P();if(!pg)return;pg.lm=v;delete pg.label;touched(pg);refresh()};$('labelMode').appendChild(b)});
+{const b=document.createElement('button');b.className='chip';b.dataset.m='custom';b.innerHTML='✎';b.setAttribute('aria-label','Type your own label');b.onclick=openLabelEdit;$('labelMode').appendChild(b)}
+function syncLabelMode(){
+  const pg=P(),custom=!!pg&&typeof pg.label==='string';$('labelMode').hidden=!pg;
+  $('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',custom?b.dataset.m==='custom':b.dataset.m===((pg&&pg.lm)||'auto')));
+}
 function renderFrameOpts(){
   const wrap=$('fopts');wrap.innerHTML='';
   (FOPTS[S.frame]||[]).forEach(([key,label,choices])=>{
@@ -1765,7 +1771,7 @@ function syncExport(){
 }
 async function exportPages(list){
   const dl=await dlP,items=[];READY=null;syncExport();
-  if(S.labelMode!=='off')await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
+  await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
     const pg=list[i];items.push({blob:await renderExport(stOf(pg)),name:fname(S.pages.indexOf(pg))});
@@ -1823,7 +1829,7 @@ function refresh(){
   localStorage_set('restoring','1');
   const ok=await restore();
   localStorage_set('restoring','0');
-  if(S.labelMode!=='off')loadPlaces();
+  loadPlaces();
   document.fonts.load(LFONT(40)).then(render).catch(()=>{});
   refresh();
 })();

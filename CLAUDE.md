@@ -120,13 +120,15 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   "Tenerife", not "La Guancha". Croatian islands are left out (too close to the mainland for boxes). `EXONYMS` maps common foreign cities to Czech names; countries come from
   `Intl.DisplayNames('cs')`.
 - **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); the two most common places,
-  "Praha & Brno"; the country only outside Czechia. Modes `S.labelMode`: off / **auto (default: place + date abroad,
-  date only at home)** / date / both.
+  "Praha & Brno"; the country only outside Czechia. The mode is **per image** (`pg.lm`, user's request): auto (default:
+  place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
+  (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
-- **Editing**: tap the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text, locks the image),
-  Hide (`pg.label=''`), Automatic (deletes `pg.label`). An image without a label shows a faint "+ Label" there.
-- **Saved** in state (`labelMode`, `pg.label`) and in the export XMP (`label`, restored by Reopen). Export metadata is
+- **Editing**: ✎ or tapping the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text in
+  `pg.label`, locks the image), Automatic (deletes `pg.label`), Cancel. An image with no label (and not Off) shows a faint
+  "+ Label" there.
+- **Saved** in state (`pg.lm`, `pg.label`) and in the export XMP (`label`, restored by Reopen). Export metadata is
   now UTF-8 before base64 (btoa threw on Czech letters).
 - Verified on the user's iPhone (artifact test page, photo library): 17/17 photos kept GPS.
 
