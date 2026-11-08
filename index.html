@@ -1012,7 +1012,7 @@ async function restore(){
         const im=await imgFrom(a.prevBlob),prev=shrink(im,im.naturalWidth,im.naturalHeight,1000);freeImg(im);
         const cr=q.crop||null;photos.push({id:q.id,file:a.file,prev,ow:a.w,oh:a.h,w:cr?Math.round(a.w*cr.w):a.w,h:cr?Math.round(a.h*cr.h):a.h,crop:cr,hero:!!q.hero,date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:q.zoom,cx:q.cx,cy:q.cy});
       }
-      if(photos.some(Boolean))pages.push({...pg,photos});
+      if(photos.some(Boolean))pages.push({lm:st.labelMode,...pg,photos}); // older sets had one label mode for the whole set
     }
     S.pages=pages;S.active=clamp(st.active||0,0,Math.max(0,pages.length-1));hint('');
     return pages.length>0;

@@ -122,7 +122,8 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
 - **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); the two most common places,
   "Praha & Brno"; the country only outside Czechia. The mode is **per image** (`pg.lm`, user's request): auto (default:
   place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
-  (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image.
+  (`syncLabelMode`), with ✎ for typed text. Picking a mode clears typed text and locks the image. Sets saved while the
+  mode was set-wide (`st.labelMode`) carry it into each image on restore.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
 - **Editing**: ✎ or tapping the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text in
