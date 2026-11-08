@@ -174,6 +174,11 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
 4. Multiple **sets** (e.g. "Summer trip", "Christmas"), each with its own style and rules; mark exported images and
    re-export only changed ones.
 5. Multi-step undo history.
+6. **Other screen sizes** (user: "might be needed down the road for other Frameo frames"): 1920 × 1080 (16:9) and
+   1920 × 1200 (16:10). Plan agreed: make `W`/`H` a setting (chips on the Frame tab, 4K 16:9 default), replace the five
+   CSS `aspect-ratio:16/9` rules and three `9/16` canvas sizings with one variable, re-fit each image's layout on change,
+   store the size in the export XMP. Layouts are fractional so the solver needs no changes; rotate layouts 90° if a
+   portrait size is ever added. Not started.
 
 ## Working conventions
 - After any change: `node tests/solver.test.mjs`, and `python tests/e2e_smoke.py` for UI changes. Look at the
