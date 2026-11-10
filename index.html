@@ -621,23 +621,32 @@ function czDate(dates){
 // landmark name or null). Each photo gives "landmark, town" (whichever are on); every place once, in photo order; a run
 // of photos in one country shares it ("Paříž & Lyon, Francie", 3+: "Paříž · Lyon · Nice, Francie"), and another
 // country in between repeats it. Joined with the date by " · ".
+// Landmark names can be essays ("Pomník obětem komunismu a přilehlé kaskádové schodiště pod Petřínem"). Over ~28
+// characters, cut at the first point where an add-on starts (" a ", a dash, a comma, a bracket, a preposition), as long
+// as a meaningful head (≥10 characters) remains.
+function shortName(n){
+  if(!n)return n;n=n.replace(/\s*\([^)]*\)/g,'').trim();if(n.length<=28)return n;
+  const m=n.slice(10).match(/\s(?:a|and|y|et|und|e|i|–|-|na|pod|nad|u|v|ve|při|za|de|del|della|di|du|of|on|in|at)\s|,|;|:/i);
+  return m?n.slice(0,10+m.index).trim():n;
+}
 function composeLabel(photos,dates,f,country){
   // with the town on, landmarks gather under their town ("Staroměstský orloj · Karlův most, Praha"), so a town is never
   // repeated; with it off, each landmark stands alone
-  const items=[],byTown=new Map(),seen=new Set();
+  const items=[],byTown=new Map(),seen=new Set();let lmCount=0; // at most two landmarks per image
   for(const p of photos){
     if(!p)continue;
     if(f.t&&p.town){
       const k=p.town+'|'+p.cc;let it=byTown.get(k);if(!it){it={town:p.town,cc:p.cc,lms:[]};byTown.set(k,it);items.push(it)}
-      if(f.l&&p.poi&&!it.lms.includes(p.poi))it.lms.push(p.poi);
+      const lm=shortName(p.poi);if(f.l&&lm&&!it.lms.includes(lm)&&lmCount<2){it.lms.push(lm);lmCount++}
     }else{
-      const n=f.l&&p.poi?p.poi:'';if(!n&&!f.c)continue;
-      const k=n+'|'+p.cc;if(seen.has(k))continue;seen.add(k);items.push({n,cc:p.cc});
+      let n=f.l&&p.poi&&lmCount<2?shortName(p.poi):'';if(!n&&!f.c)continue;
+      const k=n+'|'+p.cc;if(seen.has(k))continue;seen.add(k);if(n)lmCount++;items.push({n,cc:p.cc});
     }
   }
-  items.forEach(it=>{if(it.town)it.n=(it.lms.length?it.lms.join(' · ')+', ':'')+it.town});
+  const and=a=>a.length===2?a.join(' & '):a.join(' · '); // one rule everywhere: two with "&", three or more with dots
+  items.forEach(it=>{if(it.town)it.n=(it.lms.length?and(it.lms)+', ':'')+it.town});
   const runs=[];items.forEach(t=>{const r=runs[runs.length-1];if(r&&r.cc===t.cc)r.items.push(t);else runs.push({cc:t.cc,items:[t]})});
-  const pl=runs.map(r=>{const ns=r.items.map(t=>t.n).filter(Boolean),nm=ns.length===2?ns.join(' & '):ns.join(' · ');return f.c?(nm?nm+', ':'')+country(r.cc):nm}).filter(Boolean).join(' · ');
+  const pl=runs.map(r=>{const ns=r.items.map(t=>t.n).filter(Boolean),nm=and(ns);return f.c?(nm?nm+', ':'')+country(r.cc):nm}).filter(Boolean).join(' · ');
   return [pl,f.d?czDate(dates):''].filter(Boolean).join(' · ');
 }
 // defaults instead of the old "Auto": date and landmark on; town and country only abroad ("Praha" on every Prague
@@ -646,7 +655,7 @@ function labelDefaults(photos){const abroad=photos.some(p=>p&&p.cc&&p.cc!=='CZ')
 // what each part would show, for previews on the part buttons even while a part is off
 function labelPreview(photos,dates,country){
   const u=a=>[...new Set(a.filter(Boolean))];
-  return {l:u(photos.map(p=>p&&p.poi)),t:u(photos.map(p=>p&&p.town)),c:u(photos.map(p=>p&&p.cc&&country(p.cc))),d:czDate(dates)};
+  return {l:u(photos.map(p=>p&&shortName(p.poi))).slice(0,2),t:u(photos.map(p=>p&&p.town)),c:u(photos.map(p=>p&&p.cc&&country(p.cc))),d:czDate(dates)};
 }
 /* Landmarks from OpenStreetMap (Overpass API): what the photo stands in (park, beach, castle grounds, national park) and
    what is within 150 m (sight, museum, viewpoint, castle, waterfall…). OSM tags say what each thing is, so only real
@@ -672,7 +681,7 @@ function poiSplit(json){
   return by;
 }
 function poiPick(json,lat,lon){
-  const nm=t=>t['name:cs']||t.name,areas=[],near=[];
+  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,areas=[],near=[]; // OSM's own short names first
   for(const e of (json&&json.elements)||[]){
     const t=e.tags||{};if(!nm(t))continue;
     if(e.bounds){
@@ -1844,7 +1853,7 @@ function syncLabelMode(){
   const gs=geoState(pg),looked=S.online||!!pg.on;
   const set=(k,txt,dis)=>{const b=box.querySelector(`[data-p="${k}"]`);b.querySelector('span').textContent=txt;b.title=txt;b.disabled=!!dis;b.setAttribute('aria-pressed',!custom&&!dis&&!!f[k])};
   const lb=box.querySelector('[data-p="l"]');lb.className='part '+(gs==='none'?'g-none':!looked?'g-no':gs==='ready'?'g-ok':'g-wait');
-  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(' · '):gs==='ready'?'No landmark nearby':'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length));
+  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?'No landmark nearby':'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length));
   if(!looked&&gs!=='none')lb.setAttribute('aria-pressed','false');
   set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);

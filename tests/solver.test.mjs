@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -117,7 +117,13 @@ test('label parts: each part on its own, runs of one country share it, defaults 
   const prague = [P('Praha', 'CZ', 'Staroměstský orloj'), P('Praha', 'CZ')];
   assert.equal(L(prague, { l: true, d: true }), 'Staroměstský orloj · červenec 2025');
   assert.equal(L(prague, { l: true, t: true, d: true }), 'Staroměstský orloj, Praha · červenec 2025');      // town not repeated
-  assert.equal(L([...prague, P('Praha', 'CZ', 'Karlův most')], { l: true, t: true }), 'Staroměstský orloj · Karlův most, Praha');
+  assert.equal(L([...prague, P('Praha', 'CZ', 'Karlův most')], { l: true, t: true }), 'Staroměstský orloj & Karlův most, Praha');
+  // long names lose their add-ons; at most two landmarks per image
+  assert.equal(LB.shortName('Pomník obětem komunismu a přilehlé kaskádové schodiště pod Petřínem'), 'Pomník obětem komunismu');
+  assert.equal(LB.shortName('Kostel sv. Mikuláše na Malé Straně (Praha 1)'), 'Kostel sv. Mikuláše');
+  assert.equal(LB.shortName('Národní park Teide'), 'Národní park Teide');
+  assert.equal(LB.shortName('Památník národního písemnictví'), 'Památník národního písemnictví');   // no add-on to cut
+  assert.equal(L([P('Praha', 'CZ', 'Staroměstský orloj'), P('Praha', 'CZ', 'Pomník obětem komunismu a přilehlé kaskádové schodiště pod Petřínem'), P('Praha', 'CZ', 'Karlův most')], { l: true, d: true }), 'Staroměstský orloj & Pomník obětem komunismu · červenec 2025');
   assert.equal(L(prague, { t: true }), 'Praha');                                   // town alone works at home too
   assert.equal(L(prague, { c: true }), 'Česko');
   assert.equal(L(prague, { d: true }), 'červenec 2025');
