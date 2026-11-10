@@ -148,9 +148,14 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   query (key=value filters, spatial-first `around`, batches) the public servers mostly answered 429 or timed out on the
   user's phone ("no answer" / "server busy" cycling). Trade-off: Nominatim gives only the single nearest feature, so a
   museum 100 m away behind a nearer café is missed. Lakes count (`natural=water` with water=lake/reservoir/lagoon, any size), rivers don't.
-  `poiNominatim` also keeps the answer's `address.country_code` and city/town/village (`{v:2,name,cc,town}`): when its
-  country differs from the offline nearest town's, `labelPhotos` uses the online country and town (offline has no
-  borders: Ross Lake, USA came out as Canada). Cache entries without `v:2` are dropped on load and asked again. The queue (`poiQ`,
+  `poiNominatim` also keeps the answer's `address.country_code`, city/town/village and state (`{v:3,name,cc,town,state}`):
+  when its country differs from the offline nearest town's, or offline found no town, `labelPhotos` uses the online
+  country and town, or the state when there is no town (offline has no borders: a photo at Diablo Lake, USA came out
+  as Canada, then as just "USA"). Cache entries without `v:3` are dropped on load and asked again.
+  When Nominatim gives no landmark (its single nearest feature was the viewpoint's car park), `poiNear` asks Overpass once
+  (`poiNearQuery`/`poiNearPick`: named sights within 300 m, nearest first, else a lake; 12 s timeout). Best effort: a
+  failure stores `ovFail`, gets one retry at the end of the queue and another at the next app start; three failures in
+  a row pause Overpass for 30 s. The queue (`poiQ`,
   `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
   1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
   coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query

@@ -671,7 +671,21 @@ function poiUrl(k){const [la,lo]=k.split(',');
 // Returns {v:2, name: landmark or null, cc, town} (v marks answers in this format; older cached ones are asked again).
 function poiNominatim(json,lat,lon){
   const ad=(json&&json.address)||{},cc=ad.country_code?ad.country_code.toUpperCase():null;
-  return {v:2,name:poiLandmark(json,lat,lon),cc,town:ad.city||ad.town||ad.village||ad.municipality||null};
+  return {v:3,name:poiLandmark(json,lat,lon),cc,town:ad.city||ad.town||ad.village||ad.municipality||null,state:ad.state||ad.region||null};
+}
+/* Nominatim gives only the single nearest feature: at a viewpoint that is often its car park. When it gives no landmark,
+   one light Overpass query looks for named sights and lakes within 300 m (spatial first, key=value filters only). */
+function poiNearQuery(lat,lon){
+  const f=['nwr.n[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]','nwr.n[historic~"^(castle|ruins|monument|fort|archaeological_site)$"][name]',
+    'nwr.n[natural~"^(peak|volcano|waterfall|beach|cave_entrance|glacier)$"][name]','nwr.n[man_made=lighthouse][name]','nwr.n[natural=water][water~"^(lake|reservoir|lagoon)$"][name]'];
+  return `[out:json][timeout:10];nwr(around:300,${lat},${lon})->.n;(${f.join(';')};);out tags center;`;
+}
+function poiNearPick(json,lat,lon){
+  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,sights=[],lakes=[];
+  for(const e of (json&&json.elements)||[]){const t=e.tags||{},c=e.center||e;if(!nm(t))continue;
+    if(t.natural==='water')lakes.push(nm(t));else if(c.lat!=null)sights.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
+  sights.sort((a,b)=>a.km-b.km);
+  return sights.length?sights[0].name:lakes[0]||null; // a sight first, else the lake you stand by
 }
 function poiLandmark(json,lat,lon){
   if(!json||json.error||!json.category)return null;
@@ -962,7 +976,8 @@ function labelPhotos(pg){
   const on=S.online||!!pg.on;
   return [...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>{const b=placeOfPh(p);if(!b)return null;const poi=on?POI.get(poiKey(p)):null;
     // the online answer knows the real country: if it disagrees with the offline nearest town, that town is across a border
-    if(poi&&poi.cc&&poi.cc!==b.cc)return {town:poi.town,cc:poi.cc,poi:poi.name};
+    // (Ross Lake, USA came out as Canada); in the wild with no town around, the state or region stands in for it
+    if(poi&&poi.cc&&(poi.cc!==b.cc||!b.name))return {town:poi.town||poi.state,cc:poi.cc,poi:poi.name};
     return {town:b.name,cc:b.cc,poi:poi?poi.name:null}});
 }
 function labelFlags(pg){return {...labelDefaults(labelPhotos(pg)),...(pg.lf||{})}}
@@ -986,24 +1001,44 @@ function migrateLabel(pg){
 const POI=new Map();let poiNudge=null,poiLock=null,poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
-function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===2)POI.set(k,o[k])}).catch(()=>{})} // older answers lack the country: ask again
+function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===3&&!o[k].ovFail)POI.set(k,o[k])}).catch(()=>{})} // older answers lack country/state; failed extra lookups: ask again
 function poiSaveCache(){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),1500)}
 function poiEnqueue(photos,force){
   if(!S.online&&!force)return;
   for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
   syncPoiBadge();poiRun();
 }
+// best effort: a failure leaves no landmark for now (ovFail): the spot goes to the back of the queue for one more try, and
+// is asked again next time the app starts; three failures in a row pause Overpass for 30 s and skip those retries
+let poiOvOff=0,poiOvFails=0;
+async function poiNear(lat,lon){
+  if(Date.now()<poiOvOff)return {ovFail:true};
+  try{
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),12000);
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:poiNearQuery(lat,lon)}),signal:ac.signal}).finally(()=>clearTimeout(to));
+    if(!r.ok)throw 0;const json=await r.json();if(json.remark&&/error|timed out|timeout|memory/i.test(json.remark))throw 0;
+    poiOvFails=0;return {name:poiNearPick(json,lat,lon)};
+  }catch{if(++poiOvFails>=3){poiOvOff=Date.now()+30000;poiOvFails=0}return {ovFail:true}}
+}
 async function poiRun(){
   if(poiBusy)return;poiBusy=true;let backoff=3000;
   while(poiQ.length){ // switching online off empties the queue
     const k=poiQ[0];let wait=1100,t0=Date.now();
     try{
+      const prev=POI.get(k);
+      if(prev&&prev.ovFail){ // only the Overpass part failed earlier: retry just that, once the pause is over
+        poiQ.shift();if(Date.now()<poiOvOff)continue; // Overpass is struggling: leave it for the next app start
+        const [la,lo]=k.split(',').map(Number),near=await poiNear(la,lo),res={...prev,...near};if(!near.ovFail)delete res.ovFail;POI.set(k,res);
+        poiSaveCache();clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
+        syncPoiBadge();await new Promise(z=>{poiNudge=z;setTimeout(z,1100)});continue;
+      }
       const ac=new AbortController(),to=setTimeout(()=>ac.abort(),15000);   // a normal answer takes well under a second
       const r=await fetch(poiUrl(k),{signal:ac.signal}).finally(()=>clearTimeout(to));
       if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry this spot after a pause
-      if(r.ok){const [la,lo]=k.split(',').map(Number);POI.set(k,poiNominatim(await r.json(),la,lo))}
+      if(r.ok){const [la,lo]=k.split(',').map(Number),res=poiNominatim(await r.json(),la,lo);
+        if(!res.name)Object.assign(res,await poiNear(la,lo));POI.set(k,res)}
       else if(!poiWarned){poiWarned=true;hint(`Landmark lookup failed (HTTP ${r.status}). Labels use towns for now.`)} // not remembered: asked again next time
-      if(poiQ[0]===k)poiQ.shift();poiDone++;backoff=3000;poiErr='';poiSaveCache();wait=Math.max(0,1100-(Date.now()-t0));
+      if(poiQ[0]===k)poiQ.shift();poiDone++;if(POI.get(k)&&POI.get(k).ovFail)poiQ.push(k); // one more try of the nearby search, at the endbackoff=3000;poiErr='';poiSaveCache();wait=Math.max(0,1100-(Date.now()-t0));
       clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
     }catch(e){wait=backoff;backoff=Math.min(30000,backoff*2); // busy/offline: 3 s, 6 s … 30 s
       poiErr=(e&&e.message==='busy'?'server busy':e&&e.name==='AbortError'?'no answer':'offline')+`, retry in ${Math.round(wait/1000)} s`}

@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim,poiLandmark};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim,poiLandmark,poiNearQuery,poiNearPick};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -158,8 +158,16 @@ test('landmarks: Nominatim answer -> landmark only when it is one and you are in
   assert.equal(LB.poiLandmark(ans('natural', 'water', 'Vltava', 50.08, 14.41, .05, { extratags: { water: 'river' } }), 50.08, 14.41), null);
   // the answer carries the real country and town (Ross Lake is in the USA, the nearest offline town is in Canada)
   assert.deepEqual(LB.poiNominatim({ ...ans('natural', 'water', 'Ross Lake', 48.85, -121.03, .15, { extratags: { water: 'reservoir' } }), address: { state: 'Washington', country: 'Spojené státy americké', country_code: 'us' } }, 48.83, -121.05),
-    { v: 2, name: 'Ross Lake', cc: 'US', town: null });
-  assert.deepEqual(LB.poiNominatim({ error: 'Unable to geocode' }, 0, 0), { v: 2, name: null, cc: null, town: null });
+    { v: 3, name: 'Ross Lake', cc: 'US', town: null, state: 'Washington' });
+  assert.deepEqual(LB.poiNominatim({ error: 'Unable to geocode' }, 0, 0), { v: 3, name: null, cc: null, town: null, state: null });
+  // no landmark from Nominatim (its nearest was the car park): sights within 300 m, nearest first, else the lake
+  const q = LB.poiNearQuery(48.714, -121.098);
+  assert.match(q, /^\[out:json\]\[timeout:10\];nwr\(around:300,48\.714,-121\.098\)->\.n;\(nwr\.n\[/);
+  assert.doesNotMatch(q, /\[~"/);
+  const lake = { type: 'way', tags: { name: 'Diablo Lake', natural: 'water', water: 'reservoir' }, center: { lat: 48.72, lon: -121.12 } };
+  assert.equal(LB.poiNearPick({ elements: [lake, { type: 'node', tags: { name: 'Diablo Lake Overlook', tourism: 'viewpoint' }, lat: 48.7137, lon: -121.0984 }] }, 48.714, -121.098), 'Diablo Lake Overlook');
+  assert.equal(LB.poiNearPick({ elements: [lake] }, 48.714, -121.098), 'Diablo Lake');
+  assert.equal(LB.poiNearPick({ elements: [] }, 48.714, -121.098), null);
   assert.match(LB.poiUrl('50.088,14.421'), /^https:\/\/nominatim\.openstreetmap\.org\/reverse\?.*lat=50\.088&lon=14\.421.*accept-language=cs/);
 });
 
