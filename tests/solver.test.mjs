@@ -135,6 +135,13 @@ test('label parts: each part on its own, runs of one country share it, defaults 
   assert.equal(L([P('Paříž', 'FR', 'Eiffelova věž'), P('Lyon', 'FR')], { l: true, c: true }), 'Eiffelova věž, Francie');
   assert.deepEqual(LB.labelDefaults(prague), { d: true, l: true, t: false, c: false });
   assert.deepEqual(LB.labelDefaults([P('Paříž', 'FR')]), { d: true, l: true, t: true, c: true });
+  // a region stands in for a missing town and, like the country, follows all the places of its run
+  const W = (town, region, poi) => ({ town, region, cc: 'US', poi });
+  const usa = [W(null, 'Kalifornie', 'Nevada Fall'), W('Curry Village', null), W('Yosemite Village', null)];
+  assert.equal(LB.composeLabel(usa, [d(2024, 8)], { l: true, t: true, c: false, d: true }, cn, Infinity), 'Nevada Fall · Curry Village · Yosemite Village, Kalifornie · září 2024');
+  assert.equal(LB.composeLabel(usa, [d(2024, 8)], { l: true, t: true, c: true, d: false }, cn, Infinity), 'Nevada Fall · Curry Village · Yosemite Village, Kalifornie, Spojené státy');
+  assert.equal(LB.composeLabel(usa, [], { l: true, t: false, c: false, d: false }, cn, Infinity), 'Nevada Fall');
+  assert.equal(LB.composeLabel([W(null, 'Washington', null)], [], { l: true, t: true, c: true, d: false }, cn), 'Washington, Spojené státy');
   assert.deepEqual(LB.labelPreview([P('Paříž', 'FR', 'Eiffelova věž'), P('Paříž', 'FR')], [d(2025, 6)], cn), { l: ['Eiffelova věž'], t: ['Paříž'], c: ['Francie'], d: 'červenec 2025' });
 });
 

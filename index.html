@@ -639,14 +639,17 @@ function composeLabel(photos,dates,f,country,maxLm=2){
       const k=p.town+'|'+p.cc;let it=byTown.get(k);if(!it){it={town:p.town,cc:p.cc,lms:[]};byTown.set(k,it);items.push(it)}
       const lm=shortName(p.poi);if(f.l&&lm&&!it.lms.includes(lm)&&lmCount<maxLm){it.lms.push(lm);lmCount++}
     }else{
-      let n=f.l&&p.poi&&lmCount<maxLm?shortName(p.poi):'';if(!n&&!f.c)continue;
-      const k=n+'|'+p.cc;if(seen.has(k))continue;seen.add(k);if(n)lmCount++;items.push({n,cc:p.cc});
+      const rg=f.t&&p.region||'';let n=f.l&&p.poi&&lmCount<maxLm?shortName(p.poi):'';if(!n&&!f.c&&!rg)continue;
+      const k=n+'|'+rg+'|'+p.cc;if(seen.has(k))continue;seen.add(k);if(n)lmCount++;items.push({n,cc:p.cc,rg});
     }
   }
   const and=a=>a.length===2?a.join(' & '):a.join(' · '); // one rule everywhere: two with "&", three or more with dots
   items.forEach(it=>{if(it.town)it.n=(it.lms.length?and(it.lms)+', ':'')+it.town});
   const runs=[];items.forEach(t=>{const r=runs[runs.length-1];if(r&&r.cc===t.cc)r.items.push(t);else runs.push({cc:t.cc,items:[t]})});
-  const pl=runs.map(r=>{const ns=r.items.map(t=>t.n).filter(Boolean),nm=and(ns);return f.c?(nm?nm+', ':'')+country(r.cc):nm}).filter(Boolean).join(' · ');
+  // a region (state) stands in for a missing town (a waterfall in the wild): like the country, it is said once, after
+  // the places of its run ("Nevada Fall · Curry Village · Yosemite Village, Kalifornie")
+  const pl=runs.map(r=>{const nm=and(r.items.map(t=>t.n).filter(Boolean)),rg=[...new Set(r.items.map(t=>t.rg).filter(Boolean))].join(' · ');
+    return [nm,rg,f.c?country(r.cc):''].filter(Boolean).join(', ')}).filter(Boolean).join(' · ');
   return [pl,f.d?czDate(dates):''].filter(Boolean).join(' · ');
 }
 // defaults instead of the old "Auto": date and landmark on; town and country only abroad ("Praha" on every Prague
@@ -655,7 +658,7 @@ function labelDefaults(photos){const abroad=photos.some(p=>p&&p.cc&&p.cc!=='CZ')
 // what each part would show, for previews on the part buttons even while a part is off
 function labelPreview(photos,dates,country){
   const u=a=>[...new Set(a.filter(Boolean))];
-  return {l:u(photos.map(p=>p&&shortName(p.poi))).slice(0,2),t:u(photos.map(p=>p&&p.town)),c:u(photos.map(p=>p&&p.cc&&country(p.cc))),d:czDate(dates)};
+  return {l:u(photos.map(p=>p&&shortName(p.poi))).slice(0,2),t:u(photos.map(p=>p&&(p.town||p.region))),c:u(photos.map(p=>p&&p.cc&&country(p.cc))),d:czDate(dates)};
 }
 /* Landmarks from OpenStreetMap via Nominatim reverse geocoding: one light, fast request per spot (Overpass was too heavy
    for its public servers: on a phone it mostly answered "busy" or not at all). Nominatim returns the nearest point of
@@ -988,7 +991,7 @@ function labelPhotosAll(pg){
     // the online answer knows the real country: if it disagrees with the offline nearest town, that town is across a border
     // (Ross Lake, USA came out as Canada); in the wild with no town around, the state or region stands in for it
     const pois=poi?[poi.name,poi.near].filter(Boolean):[]; // Nominatim's nearest, then what "Search nearby" found
-    if(poi&&poi.cc&&(poi.cc!==b.cc||!b.name))return {town:poi.town||poi.state,cc:poi.cc,pois};
+    if(poi&&poi.cc&&(poi.cc!==b.cc||!b.name))return {town:poi.town,region:poi.town?null:poi.state,cc:poi.cc,pois};
     return {town:b.name,cc:b.cc,pois}});
 }
 // Landmarks are switched one by one (user's request: lookups are not always right). pg.lmSel = {short name: on/off};
@@ -1001,7 +1004,7 @@ function labelPhotos(pg){
   const ls=lmList(pg),ok=new Set(ls.filter((n,i)=>lmOn(pg,n,i)));
   // one entry per switched-on landmark (a photo can have two), or one without a landmark
   return labelPhotosAll(pg).flatMap(p=>{if(!p)return [null];const on=p.pois.filter(n=>ok.has(shortName(n)));
-    return on.length?on.map(poi=>({town:p.town,cc:p.cc,poi})):[{town:p.town,cc:p.cc,poi:null}]});
+    return on.length?on.map(poi=>({...p,poi})):[{...p,poi:null}]});
 }
 function labelFlags(pg){return {...labelDefaults(labelPhotos(pg)),...(pg.lf||{})}}
 function labelFor(pg){

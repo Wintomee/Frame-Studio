@@ -161,6 +161,9 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   when its country differs from the offline nearest town's, or offline found no town, `labelPhotos` uses the online
   country and town, or the state when there is no town (offline has no borders: a photo at Diablo Lake, USA came out
   as Canada, then as just "USA"). Cache entries without `v:3` are dropped on load and asked again.
+  The state is a **region**, not a town (`labelPhotosAll` gives `region` only when the town is missing): like the
+  country it is said once per run, after all its places ("Nevada Fall · Curry Village · Yosemite Village, Kalifornie"),
+  and it belongs to the town part (shown on the Town chip, hidden with it).
   Nominatim's single nearest feature is often not the landmark (a viewpoint's car park), so an image with no landmark
   shows **"Search nearby"** on its landmark part (user's request: on demand, because it can be slow and most images
   don't need it; doing it automatically for every miss was overkill). Tapping it queues `near:<spot>` items at the front
