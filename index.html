@@ -673,26 +673,29 @@ function poiNominatim(json,lat,lon){
   const ad=(json&&json.address)||{},cc=ad.country_code?ad.country_code.toUpperCase():null;
   return {v:3,name:poiLandmark(json,lat,lon),cc,town:ad.city||ad.town||ad.village||ad.municipality||null,state:ad.state||ad.region||null};
 }
-/* Nominatim gives only the single nearest feature: at a viewpoint that is often its car park. When it gives no landmark,
-   one light Overpass query looks for named sights and lakes within 300 m (spatial first, key=value filters only). */
-// sights within 300 m (spatial first: everything around, then filtered by key=value), lakes within 800 m (from a
-// viewpoint above a lake the shore is far below), and the national park / protected area you are in
-function poiNearQuery(lat,lon){
-  const f=['nwr.n[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]','nwr.n[historic~"^(castle|ruins|monument|fort|archaeological_site|monastery|church)$"][name]',
-    'nwr.n[natural~"^(peak|volcano|waterfall|beach|cave_entrance|glacier|rock|cliff)$"][name]','nwr.n[man_made=lighthouse][name]'];
-  const w='[natural=water][water~"^(lake|reservoir|lagoon)$"][name]',pa='[boundary~"^(national_park|protected_area)$"][name]';
-  return `[out:json][timeout:25];nwr(around:300,${lat},${lon})->.n;(${f.join(';')};);out tags center;`+
-    `way(around:800,${lat},${lon})->.w;rel(around:800,${lat},${lon})->.r;(way.w${w};rel.r${w};);out tags center;`+
-    `is_in(${lat},${lon})->.a;(way(pivot.a)${pa};rel(pivot.a)${pa};way(pivot.a)[leisure=nature_reserve][name];rel(pivot.a)[leisure=nature_reserve][name];);out tags bb;`;
+// Nominatim gives only the single nearest feature: at a viewpoint that is often its car park. Hence:
+/* "Search nearby": Photon (photon.komoot.io, OpenStreetMap data) answers a reverse search with many named features
+   around a point in one fast request, filtered by OSM key. (Overpass did this first, but from the phone it mostly
+   timed out.) Pick: a sight within ~350 m → a park, garden or castle grounds you are in → a lake within 800 m → the
+   national park or protected area you are in. */
+function poiNearUrl(lat,lon){
+  return `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&radius=5&limit=50`+['tourism','historic','natural','leisure','boundary','man_made','waterway'].map(k=>'&osm_tag='+k).join('');
 }
 function poiNearPick(json,lat,lon){
-  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,sights=[],lakes=[],areas=[];
-  for(const e of (json&&json.elements)||[]){const t=e.tags||{},c=e.center||e;if(!nm(t))continue;
-    if(e.bounds){const b=e.bounds;areas.push({name:nm(t),np:t.boundary==='national_park'||String(t.protect_class)==='2',km:kmBetween({lat:b.minlat,lon:b.minlon},{lat:b.maxlat,lon:b.maxlon})})}
-    else if(t.natural==='water'&&t.water)lakes.push({name:nm(t),km:c.lat!=null?kmBetween({lat,lon},{lat:c.lat,lon:c.lon}):99});
-    else if(c.lat!=null)sights.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
-  sights.sort((a,b)=>a.km-b.km);lakes.sort((a,b)=>a.km-b.km);areas.sort((a,b)=>(b.np-a.np)||(a.km-b.km));
-  return (sights[0]||lakes[0]||areas[0]||{name:null}).name; // a sight, else the lake, else the park you are in
+  const sights=[],small=[],lakes=[],big=[];
+  for(const f of (json&&json.features)||[]){
+    const p=f.properties||{},name=p.name,k=p.osm_key,v=p.osm_value,c=(f.geometry||{}).coordinates;if(!name||!c)continue;
+    const water=k==='natural'&&v==='water',area=/^(national_park|protected_area|nature_reserve)$/.test(v);
+    if(!water&&!area&&!(POI_OK[k]&&POI_OK[k].test(v)))continue;
+    const e=p.extent; // [minlon, maxlat, maxlon, minlat]
+    const inside=e&&lat<=e[1]&&lat>=e[3]&&lon>=e[0]&&lon<=e[2],size=e?kmBetween({lat:e[3],lon:e[0]},{lat:e[1],lon:e[2]}):0;
+    const km=inside?0:e?kmBetween({lat,lon},{lat:Math.min(e[1],Math.max(e[3],lat)),lon:Math.min(e[2],Math.max(e[0],lon))}):kmBetween({lat,lon},{lat:c[1],lon:c[0]});
+    if(water){if(km<=.8)lakes.push({name,km});continue}
+    if(area){if(inside)big.push({name,np:v==='national_park',km:size});continue}
+    if(inside&&size<3)small.push({name,km:size});else if(!e||size<.5){if(km<=.35)sights.push({name,km})}else if(inside)big.push({name,np:false,km:size});
+  }
+  sights.sort((a,b)=>a.km-b.km);small.sort((a,b)=>a.km-b.km);lakes.sort((a,b)=>a.km-b.km);big.sort((a,b)=>(b.np-a.np)||(a.km-b.km));
+  return (sights[0]||small[0]||lakes[0]||big[0]||{name:null}).name;
 }
 function poiLandmark(json,lat,lon){
   if(!json||json.error||!json.category)return null;
@@ -1016,32 +1019,25 @@ function poiEnqueue(photos,force){
   for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
   syncPoiBadge();poiRun();
 }
-// on demand only (it can be slow): Overpass, see poiNearQuery; failure = {ovFail: reason}
-let poiNearWarned=false;
-// several public servers with the same data; the first that answers wins
-const POI_NEAR_SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+// on demand only: see poiNearUrl; failure = {ovFail: reason}
+let poiNearWarned=false;const poiNearErr=new Set(); // spots whose nearby search failed this session
 async function poiNear(lat,lon){
-  let why='';
-  for(const url of POI_NEAR_SERVERS){
-    try{
-      const ac=new AbortController(),to=setTimeout(()=>ac.abort(),30000);
-      const r=await fetch(url,{method:'POST',body:new URLSearchParams({data:poiNearQuery(lat,lon)}),signal:ac.signal}).finally(()=>clearTimeout(to));
-      if(!r.ok){why=`HTTP ${r.status}`;continue}
-      const json=await r.json();if(json.remark&&/error|timed out|timeout|memory/i.test(json.remark)){why='server timeout';continue}
-      return {name:poiNearPick(json,lat,lon)};
-    }catch(e){why=e&&e.name==='AbortError'?'no answer':'no connection'}
-  }
-  return {ovFail:why};
+  try{
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),20000);
+    const r=await fetch(poiNearUrl(lat,lon),{signal:ac.signal}).finally(()=>clearTimeout(to));
+    if(!r.ok)return {ovFail:`HTTP ${r.status}`};
+    return {name:poiNearPick(await r.json(),lat,lon)};
+  }catch(e){return {ovFail:e&&e.name==='AbortError'?'no answer':'no connection'}}
 }
 async function poiRun(){
   if(poiBusy)return;poiBusy=true;let backoff=3000;
   while(poiQ.length){ // switching online off empties the queue
     const k=poiQ[0];let wait=1100,t0=Date.now();
     try{
-      if(k.startsWith('near:')){ // "Search nearby" tapped on an image: one Overpass query for this spot
+      if(k.startsWith('near:')){ // "Search nearby" tapped on an image: one Photon request for this spot
         const sk=k.slice(5),[la,lo]=sk.split(',').map(Number),near=await poiNear(la,lo),i=poiQ.indexOf(k);if(i>=0)poiQ.splice(i,1);
-        if(near.ovFail){if(!poiNearWarned){poiNearWarned=true;hint(`Nearby search failed (${near.ovFail}). Try again later.`)}}
-        else POI.set(sk,{...POI.get(sk),name:near.name,deep:true});
+        if(near.ovFail){poiNearErr.add(sk);if(!poiNearWarned){poiNearWarned=true;hint(`Nearby search failed (${near.ovFail}). Tap to try again.`)}}
+        else{poiNearErr.delete(sk);POI.set(sk,{...POI.get(sk),name:near.name,deep:true})}
         poiSaveCache(!poiQ.some(x=>x.startsWith('near:')));clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},100);
         syncPoiBadge();continue;
       }
@@ -1907,7 +1903,7 @@ function syncLabelMode(){
   const gs=geoState(pg),looked=S.online||!!pg.on;
   const set=(k,txt,dis)=>{const b=box.querySelector(`[data-p="${k}"]`);b.querySelector('span').textContent=txt;b.title=txt;b.disabled=!!dis;b.setAttribute('aria-pressed',!custom&&!dis&&!!f[k])};
   const lb=box.querySelector('[data-p="l"]');lb.className='part '+(gs==='none'?'g-none':!looked?'g-no':gs==='ready'?'g-ok':'g-wait');
-  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?(nearCand(pg).length?'Search nearby':'No landmark nearby'):'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length&&!nearCand(pg).length));
+  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?(nearCand(pg).length?(nearCand(pg).some(k=>poiNearErr.has(k))?'Search failed · retry':'Search nearby'):'No landmark nearby'):'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length&&!nearCand(pg).length));
   if((!looked&&gs!=='none')||(gs==='ready'&&!pv.l.length))lb.setAttribute('aria-pressed','false'); // an action (find/search), not a part that is on
   set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);

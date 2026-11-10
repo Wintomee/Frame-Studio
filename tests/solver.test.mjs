@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim,poiLandmark,poiNearQuery,poiNearPick};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim,poiLandmark,poiNearUrl,poiNearPick};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -160,21 +160,20 @@ test('landmarks: Nominatim answer -> landmark only when it is one and you are in
   assert.deepEqual(LB.poiNominatim({ ...ans('natural', 'water', 'Ross Lake', 48.85, -121.03, .15, { extratags: { water: 'reservoir' } }), address: { state: 'Washington', country: 'Spojené státy americké', country_code: 'us' } }, 48.83, -121.05),
     { v: 3, name: 'Ross Lake', cc: 'US', town: null, state: 'Washington' });
   assert.deepEqual(LB.poiNominatim({ error: 'Unable to geocode' }, 0, 0), { v: 3, name: null, cc: null, town: null, state: null });
-  // no landmark from Nominatim (its nearest was the car park): sights within 300 m, nearest first, else the lake
-  const q = LB.poiNearQuery(48.714, -121.098);
-  assert.match(q, /^\[out:json\]\[timeout:25\];nwr\(around:300,48\.714,-121\.098\)->\.n;\(nwr\.n\[/);
-  assert.doesNotMatch(q, /\[~"/);
-  const lake = { type: 'way', tags: { name: 'Diablo Lake', natural: 'water', water: 'reservoir' }, center: { lat: 48.72, lon: -121.12 } };
-  assert.equal(LB.poiNearPick({ elements: [lake, { type: 'node', tags: { name: 'Diablo Lake Overlook', tourism: 'viewpoint' }, lat: 48.7137, lon: -121.0984 }] }, 48.714, -121.098), 'Diablo Lake Overlook');
-  assert.equal(LB.poiNearPick({ elements: [lake] }, 48.714, -121.098), 'Diablo Lake');
-  assert.equal(LB.poiNearPick({ elements: [] }, 48.714, -121.098), null);
-  // nothing named nearby: the protected area you are in (national park first, else the smallest)
-  const pa = (name, tags, d) => ({ type: 'relation', tags: { name, ...tags }, bounds: { minlat: 48.7 - d, minlon: -121.1 - d, maxlat: 48.7 + d, maxlon: -121.1 + d } });
-  assert.equal(LB.poiNearPick({ elements: [pa('Ross Lake National Recreation Area', { boundary: 'protected_area', protect_class: '5' }, .3)] }, 48.714, -121.098), 'Ross Lake National Recreation Area');
-  assert.equal(LB.poiNearPick({ elements: [pa('Big', { boundary: 'protected_area' }, .1), pa('NP', { boundary: 'national_park' }, .5)] }, 48.714, -121.098), 'NP');
-  assert.equal(LB.poiNearPick({ elements: [pa('NP', { boundary: 'national_park' }, .5), lake] }, 48.714, -121.098), 'Diablo Lake');
-  assert.match(q, /way\(around:800,48\.714,-121\.098\)/);
-  assert.match(q, /is_in\(48\.714,-121\.098\)/);
+  // "Search nearby" (Photon): features with a point and, for areas, an extent [minlon, maxlat, maxlon, minlat]
+  const ft = (name, k, v, lat, lon, e) => ({ geometry: { coordinates: [lon, lat] }, properties: { name, osm_key: k, osm_value: v, ...(e ? { extent: e } : {}) } });
+  const box = (la, lo, d) => [lo - d, la + d, lo + d, la - d];
+  const at = [48.714, -121.098];
+  const lake = ft('Diablo Lake', 'natural', 'water', 48.72, -121.12, box(48.72, -121.12, .02)), nra = ft('Ross Lake National Recreation Area', 'boundary', 'protected_area', 48.8, -121.1, box(48.8, -121.1, .4));
+  const view = ft('Diablo Lake Overlook', 'tourism', 'viewpoint', 48.7137, -121.0984), park = ft('Parking', 'amenity', 'parking', 48.714, -121.098);
+  assert.equal(LB.poiNearPick({ features: [park, nra, lake, view] }, ...at), 'Diablo Lake Overlook');
+  assert.equal(LB.poiNearPick({ features: [park, nra, lake] }, ...at), 'Diablo Lake');                 // shore within 800 m
+  assert.equal(LB.poiNearPick({ features: [nra, ft('Far Lake', 'natural', 'water', 48.6, -121.0, box(48.6, -121, .01))] }, ...at), 'Ross Lake National Recreation Area');
+  assert.equal(LB.poiNearPick({ features: [ft('Far view', 'tourism', 'viewpoint', 48.72, -121.098)] }, ...at), null); // 670 m away
+  assert.equal(LB.poiNearPick({ features: [] }, ...at), null);
+  // standing in a small park beats the national park around it
+  assert.equal(LB.poiNearPick({ features: [ft('NP', 'boundary', 'national_park', 48.7, -121.1, box(48.7, -121.1, .5)), ft('Garden', 'leisure', 'garden', 48.714, -121.098, box(48.714, -121.098, .002))] }, ...at), 'Garden');
+  assert.match(LB.poiNearUrl(...at), /^https:\/\/photon\.komoot\.io\/reverse\?lat=48\.714&lon=-121\.098&.*osm_tag=tourism/);
   assert.match(LB.poiUrl('50.088,14.421'), /^https:\/\/nominatim\.openstreetmap\.org\/reverse\?.*lat=50\.088&lon=14\.421.*accept-language=cs/);
 });
 

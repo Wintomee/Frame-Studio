@@ -46,5 +46,5 @@ In Art Mode set the matte to **None**, otherwise the TV adds its own border on t
 ## Credits
 
 Town names for location labels: [GeoNames](https://www.geonames.org/) (CC BY 4.0), via the `all-the-cities` package.
-Landmark names (optional "Detailed places (online)"): © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim.
-With that switch on, the app sends each photo's coordinates, rounded to about 100 m, to nominatim.openstreetmap.org (at most one request a second, per its usage policy). Photos themselves never leave the phone.
+Landmark names (optional "Detailed places (online)"): © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via Nominatim and Photon (komoot).
+With that switch on, the app sends each photo's coordinates, rounded to about 100 m, to nominatim.openstreetmap.org (at most one request a second, per its usage policy), and to photon.komoot.io when you tap “Search nearby”. Photos themselves never leave the phone.

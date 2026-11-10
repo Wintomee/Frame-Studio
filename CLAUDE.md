@@ -155,12 +155,13 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   Nominatim's single nearest feature is often not the landmark (a viewpoint's car park), so an image with no landmark
   shows **"Search nearby"** on its landmark part (user's request: on demand, because it can be slow and most images
   don't need it; doing it automatically for every miss was overkill). Tapping it queues `near:<spot>` items at the front
-  of `poiQ` for that image's spots (`nearCand`); `poiNear` asks Overpass (`poiNearQuery`/`poiNearPick`: named sights
-  within 300 m, nearest first, else a lake within 800 m, else the national park / protected area (any class) /
-  nature reserve the spot is in; 30 s timeout per server, falling through `POI_NEAR_SERVERS`: overpass-api.de,
-  overpass.private.coffee, overpass.kumi.systems) and marks the spot `deep`. Deep spots without a result read "No
-  landmark nearby". A failure shows one hint with the reason and can be tapped again. "Search nearby" is shown unpressed
-  (an action, not a part that is on). The filmstrip keeps its scroll position across re-renders (lookups re-render it)
+  of `poiQ` for that image's spots (`nearCand`); `poiNear` asks **Photon** (`photon.komoot.io/reverse`, radius 5 km,
+  50 results, `osm_tag` filters for tourism/historic/natural/leisure/boundary/man_made/waterway; `poiNearUrl`,
+  `poiNearPick`: a sight within ~350 m → a small park/garden/castle grounds you are in → a lake within 800 m of its
+  extent → the national park or protected area (any class) you are in) and marks the spot `deep`. Overpass was used
+  here first: from the user's phone it timed out even with three fallback servers. Deep spots without a result read
+  "No landmark nearby"; a failed search reads "Search failed · retry" (`poiNearErr`, plus one hint with the reason,
+  which the user missed as a transient pill). "Search nearby" is shown unpressed (an action, not a part that is on). The filmstrip keeps its scroll position across re-renders (lookups re-render it)
   and only scrolls to the active image when the selection changes (`stripAt`). The queue (`poiQ`,
   `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
   1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
