@@ -123,15 +123,20 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   `places.txt`. A failed or bogus load (fewer than 1,000 places, e.g. an error page) shows one message and is retried at
   most every 10 s, and right away when a label mode is picked. Before this, a failed first load silently left labels
   date-only for good.
-- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"); every place once, in the
-  order the photos were taken, joined with the same " · " as the date ("Praha · Brno · červen 2025"). The country only
-  outside Czechia; a run of places in one country shares it ("Paříž & Lyon, Francie", 3+: "Paříž · Lyon · Nice,
-  Francie"); another country in between repeats it and keeps photo order ("Paříž, Francie · Vídeň, Rakousko · Lyon,
-  Francie"). The mode is **per image** (`pg.lm`, user's request): auto (default:
-  place + date abroad, date only at home) / date / both / off, chosen in a "Label" chip row on the **Layout tab**
-  (`syncLabelMode`), with ✎ for typed text. Under the row the current label is shown as read-only text (`#labelText`,
-  "No label" when empty), because the caption on the preview is too small to read on a phone held upright. Picking a mode clears typed text and locks the image. Sets saved while the
-  mode was set-wide (`st.labelMode`) carry it into each image on restore.
+- **Text** (user's choices): Czech month + year ("srpen 2025", ranges "srpen – září 2025"). The label is built from
+  four **independent parts per image** (user's request; the old Auto/Date/Place + date/Off modes and Landmark/Town
+  switches are gone): landmark, town, country, date (`composeLabel`, flags `pg.lf={l,t,c,d}` over `labelDefaults`:
+  date and landmark on, town and country only abroad, since "Praha" on every Prague image says nothing). Places follow
+  photo order; with the town on, landmarks gather under their town and the town never repeats ("Staroměstský orloj &
+  Karlův most, Praha"); a run of one country shares it ("Paříž & Lyon, Francie"); another country in between repeats
+  it. One join rule everywhere: two items "&", three or more " · ". Landmark names are shortened (`shortName`: OSM
+  `short_name(:cs)` first, then over ~28 characters cut at the first add-on: " a ", dash, comma, bracket, preposition;
+  "Pomník obětem komunismu a přilehlé kaskádové schodiště…" → "Pomník obětem komunismu"), at most two per image.
+  **UI**: one wrapping row on the Layout tab (`#labelParts`): a button per part that shows its value even while off
+  (on = solid accent, off = dashed), so a long or wrong landmark is visible before switching it on, plus ✎ for typed
+  text (`pg.label`; tapping a part leaves typed text). Under the row the full label is shown as text (`#labelText`,
+  "No label" when empty), because the caption on the preview is too small to read on a phone held upright. Older sets
+  (`pg.lm`, `pg.pl`, `pg.ld`, set-wide `st.labelMode`) are converted by `migrateLabel` on restore.
 - **Landmarks online** (user's request, on by default, `S.online` in localStorage): a "Detailed places (online)" toggle
   above the empty-state import square (`#onlTop`, hidden once a set exists) and on the review screen (`#onlRvCb`).
   `poiQuery`/`poiBatchQuery`/`poiSplit`/`poiPick` (pure, LABELS block) ask **Overpass** (`overpass-api.de`, not Nominatim: Overpass can ask what a
@@ -152,20 +157,20 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   corner, no backdrop, mostly outside the picture (`geoState`: none = lookups off or no GPS, dark red = waiting,
   green = ready; colours `--geo-no`/`--geo-ok`, used for every pin). Export waits
   up to a minute for pending lookups of the images being exported. `placeFor` uses the landmark instead of the town
-  for photos that have one. The Layout tab's Place row (shown when the label can show places) is a status pin
-  (`#lblFind`, class off/wait/ready) and two separate switches, Landmark and Town (user's request, so both can show:
-  "Staroměstský orloj, Praha"); per image `pg.pl={lm,tw}` (`placeOpts`; the older `pg.ld` still reads), default
-  landmark on, town off, where the town still stands in for photos without a landmark; both off = no place. With
-  online lookups off, the pin reads "Find landmarks" (user's request): it sets `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`), and `placeFor` then uses its
-  landmarks; `pg.on` is saved and pending lookups resume after a restart. **Auto at home now shows landmarks** ("Staroměstský orloj · září 2025") and still
-  only the date when there are none. Not verified against the live service from the dev container (blocked); tested
+  The landmark part carries the lookup state (`geoState`: green ready, dark red waiting, crossed out without GPS; the
+  filmstrip pins use the same states). With online lookups off it reads "Find landmarks" (user's request): it sets
+  `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`); `pg.on` is saved and pending lookups resume
+  after a restart. The progress bar counts **images** (like the green pins) and shows why it waits ("server busy, retry
+  in 20 s"): the user saw 0/38 while 6 images were green, because it counted only new spots. iOS freezes a locked or
+  background web app, so lookups can't run then; while they run and the app is open, a screen wake lock keeps the
+  phone awake (`poiWake`), and returning to the app cuts the retry wait short (`poiNudge`). Not verified against the live service from the dev container (blocked); tested
   with stand-in answers in Overpass's format.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
 - **Editing**: ✎ or tapping the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text in
-  `pg.label`, locks the image), Automatic (deletes `pg.label`), Cancel. An image with no label (and not Off) shows a faint
-  "+ Label" there.
-- **Saved** in state (`pg.lm`, `pg.label`) and in the export XMP (`label`, restored by Reopen). Export metadata is
+  `pg.label`, locks the image), Automatic (deletes `pg.label`), Cancel. An image with no label (but some part on) shows a
+  faint "+ Label" there.
+- **Saved** in state (`pg.lf`, `pg.label`, `pg.on`) and in the export XMP (`label`, restored by Reopen). Export metadata is
   now UTF-8 before base64 (btoa threw on Czech letters).
 - Verified on the user's iPhone (artifact test page, photo library): 17/17 photos kept GPS.
 

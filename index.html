@@ -991,7 +991,7 @@ function migrateLabel(pg){
    Only rounded coordinates (~100 m) leave the phone; answers are kept in IndexedDB so each spot is asked once. ---------- */
 // two public servers with the same OpenStreetMap data; a busy one hands over to the other
 const POI_SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];let poiSrv=0;
-const POI=new Map();let poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
+const POI=new Map();let poiNudge=null,poiLock=null,poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
 function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)POI.set(k,o[k])}).catch(()=>{})}
@@ -1016,12 +1016,21 @@ async function poiRun(){
       clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
     }catch(e){wait=backoff;backoff=Math.min(60000,backoff*2);poiSrv=(poiSrv+1)%POI_SERVERS.length; // busy/offline: other server, 5 s, 10 s … 1 min
       poiErr=(e&&e.message==='busy'?'server busy':e&&e.message==='incomplete'?'server slow':e&&e.name==='AbortError'?'no answer':'offline')+`, retry in ${Math.round(wait/1000)} s`}
-    syncPoiBadge();await tick(wait);
+    syncPoiBadge();await new Promise(z=>{poiNudge=z;setTimeout(z,wait)}); // a return to the app cuts the wait short
   }
   poiBusy=false;if(!poiQ.length)poiDone=poiTotal=0;syncPoiBadge();
 }
+// iOS freezes a web app that is locked or in the background, so lookups can't run then. While they run and the app is
+// open, a screen wake lock keeps the phone from dozing off; coming back to the app retries at once.
+async function poiWake(on){
+  try{
+    if(on&&!poiLock&&document.visibilityState==='visible'&&navigator.wakeLock){poiLock=await navigator.wakeLock.request('screen');poiLock.addEventListener('release',()=>{poiLock=null})}
+    else if(!on&&poiLock){const l=poiLock;poiLock=null;await l.release()}
+  }catch{}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&poiQ.length){poiWake(true);if(poiNudge)poiNudge()}});
 function syncPoiBadge(){
-  const on=poiQ.length>0;$('poiBadge').hidden=!on;if(!on)return;
+  const on=poiQ.length>0;$('poiBadge').hidden=!on;poiWake(on);if(!on)return;
   // images done / images being looked up, so it matches the green pins; spots while there is no set yet (review)
   const geo=S.pages.filter(p=>['wait','ready'].includes(geoState(p))),done=geo.filter(p=>geoState(p)==='ready').length,[a,b]=geo.length?[done,geo.length]:[poiDone,poiTotal];
   $('poiPct').textContent=`${a}/${b}`+(poiErr?` · ${poiErr}`:'');$('poiFill').style.width=(100*a/Math.max(1,b))+'%';
