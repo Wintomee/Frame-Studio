@@ -1001,44 +1001,42 @@ function migrateLabel(pg){
 const POI=new Map();let poiNudge=null,poiLock=null,poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
-function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===3&&!o[k].ovFail)POI.set(k,o[k])}).catch(()=>{})} // older answers lack country/state; failed extra lookups: ask again
-function poiSaveCache(){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),1500)}
+function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===3)POI.set(k,o[k])}).catch(()=>{})} // older answers lack country/state: ask again
+function poiSaveCache(now){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),now?0:1500)}
+addEventListener('pagehide',()=>{if(poiSaveT)poiSaveCache(true)});
 function poiEnqueue(photos,force){
   if(!S.online&&!force)return;
   for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
   syncPoiBadge();poiRun();
 }
-// best effort: a failure leaves no landmark for now (ovFail): the spot goes to the back of the queue for one more try, and
-// is asked again next time the app starts; three failures in a row pause Overpass for 30 s and skip those retries
-let poiOvOff=0,poiOvFails=0;
+// on demand only (it can be slow): Overpass for named sights and lakes within 300 m; failure = {ovFail:true}
+let poiNearWarned=false;
 async function poiNear(lat,lon){
-  if(Date.now()<poiOvOff)return {ovFail:true};
   try{
-    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),12000);
+    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),25000);
     const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:poiNearQuery(lat,lon)}),signal:ac.signal}).finally(()=>clearTimeout(to));
     if(!r.ok)throw 0;const json=await r.json();if(json.remark&&/error|timed out|timeout|memory/i.test(json.remark))throw 0;
-    poiOvFails=0;return {name:poiNearPick(json,lat,lon)};
-  }catch{if(++poiOvFails>=3){poiOvOff=Date.now()+30000;poiOvFails=0}return {ovFail:true}}
+    poiNearWarned=false;return {name:poiNearPick(json,lat,lon)};
+  }catch{return {ovFail:true}}
 }
 async function poiRun(){
   if(poiBusy)return;poiBusy=true;let backoff=3000;
   while(poiQ.length){ // switching online off empties the queue
     const k=poiQ[0];let wait=1100,t0=Date.now();
     try{
-      const prev=POI.get(k);
-      if(prev&&prev.ovFail){ // only the Overpass part failed earlier: retry just that, once the pause is over
-        poiQ.shift();if(Date.now()<poiOvOff)continue; // Overpass is struggling: leave it for the next app start
-        const [la,lo]=k.split(',').map(Number),near=await poiNear(la,lo),res={...prev,...near};if(!near.ovFail)delete res.ovFail;POI.set(k,res);
-        poiSaveCache();clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
-        syncPoiBadge();await new Promise(z=>{poiNudge=z;setTimeout(z,1100)});continue;
+      if(k.startsWith('near:')){ // "Search nearby" tapped on an image: one Overpass query for this spot
+        const sk=k.slice(5),[la,lo]=sk.split(',').map(Number),near=await poiNear(la,lo),i=poiQ.indexOf(k);if(i>=0)poiQ.splice(i,1);
+        if(near.ovFail){if(!poiNearWarned){poiNearWarned=true;hint('Nearby search failed. Try again later.')}}
+        else POI.set(sk,{...POI.get(sk),name:near.name,deep:true});
+        poiSaveCache(!poiQ.some(x=>x.startsWith('near:')));clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},100);
+        syncPoiBadge();continue;
       }
       const ac=new AbortController(),to=setTimeout(()=>ac.abort(),15000);   // a normal answer takes well under a second
       const r=await fetch(poiUrl(k),{signal:ac.signal}).finally(()=>clearTimeout(to));
       if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry this spot after a pause
-      if(r.ok){const [la,lo]=k.split(',').map(Number),res=poiNominatim(await r.json(),la,lo);
-        if(!res.name)Object.assign(res,await poiNear(la,lo));POI.set(k,res)}
+      if(r.ok){const [la,lo]=k.split(',').map(Number);POI.set(k,poiNominatim(await r.json(),la,lo))}
       else if(!poiWarned){poiWarned=true;hint(`Landmark lookup failed (HTTP ${r.status}). Labels use towns for now.`)} // not remembered: asked again next time
-      if(poiQ[0]===k)poiQ.shift();poiDone++;if(POI.get(k)&&POI.get(k).ovFail)poiQ.push(k); // one more try of the nearby search, at the endbackoff=3000;poiErr='';poiSaveCache();wait=Math.max(0,1100-(Date.now()-t0));
+      if(poiQ[0]===k)poiQ.shift();poiDone++;backoff=3000;poiErr='';poiSaveCache();wait=Math.max(0,1100-(Date.now()-t0));
       clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
     }catch(e){wait=backoff;backoff=Math.min(30000,backoff*2); // busy/offline: 3 s, 6 s … 30 s
       poiErr=(e&&e.message==='busy'?'server busy':e&&e.name==='AbortError'?'no answer':'offline')+`, retry in ${Math.round(wait/1000)} s`}
@@ -1872,6 +1870,8 @@ function syncWall(){
 $('labelParts').querySelectorAll('.part[data-p]').forEach(b=>b.onclick=()=>{
   const pg=P();if(!pg)return;const k=b.dataset.p;
   if(k==='l'&&!(S.online||pg.on)){pg.on=true;touched(pg);poiEnqueue(filled(pg),true);refresh();return}
+  if(k==='l'&&geoState(pg)==='ready'&&!labelPreview(labelPhotos(pg),[],countryCs).l.length&&nearCand(pg).length){ // "Search nearby"
+    const ks=nearCand(pg).map(x=>'near:'+x);poiQ.unshift(...ks.filter(x=>!poiQ.includes(x)));poiNearWarned=false;syncLabelMode();syncPoiBadge();if(poiBusy&&poiNudge)poiNudge();poiRun();return}
   if(k==='l'&&geoState(pg)==='wait'){filled(pg).forEach(p=>{if(p.lat!=null&&!poiQ.includes(poiKey(p)))poiQueued.delete(poiKey(p))});poiEnqueue(filled(pg),true)} // retry stuck spots
   if(typeof pg.label==='string'){delete pg.label;touched(pg);refresh();return} // first tap leaves typed text
   const f=labelFlags(pg);pg.lf={...(pg.lf||{}),[k]:!f[k]};touched(pg);refresh();
@@ -1880,15 +1880,17 @@ $('lblEditBtn').onclick=openLabelEdit;
 // per image: 'none' (no GPS) / '' (lookups off) / 'wait' / 'ready'
 function geoState(pg){
   const ks=filled(pg).filter(p=>p.lat!=null).map(poiKey);if(!ks.length)return 'none';if(!(S.online||pg.on))return '';
-  return ks.every(k=>POI.has(k))?'ready':'wait';
+  return ks.every(k=>POI.has(k)&&!poiQ.includes('near:'+k))?'ready':'wait';
 }
+// spots of this image that have no landmark yet and haven't had the (slower) nearby search
+const nearCand=pg=>[...new Set(filled(pg).filter(p=>p.lat!=null).map(poiKey))].filter(k=>{const v=POI.get(k);return v&&!v.name&&!v.deep});
 function syncLabelMode(){
   const pg=P(),box=$('labelParts');box.hidden=!pg;$('labelText').hidden=!pg;if(!pg)return;
   const custom=typeof pg.label==='string',f=labelFlags(pg),lp=labelPhotos(pg),pv=labelPreview(lp,[...filled(pg)].map(p=>p.date),countryCs);
   const gs=geoState(pg),looked=S.online||!!pg.on;
   const set=(k,txt,dis)=>{const b=box.querySelector(`[data-p="${k}"]`);b.querySelector('span').textContent=txt;b.title=txt;b.disabled=!!dis;b.setAttribute('aria-pressed',!custom&&!dis&&!!f[k])};
   const lb=box.querySelector('[data-p="l"]');lb.className='part '+(gs==='none'?'g-none':!looked?'g-no':gs==='ready'?'g-ok':'g-wait');
-  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?'No landmark nearby':'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length));
+  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?(nearCand(pg).length?'Search nearby':'No landmark nearby'):'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length&&!nearCand(pg).length));
   if(!looked&&gs!=='none')lb.setAttribute('aria-pressed','false');
   set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);
