@@ -1003,13 +1003,19 @@ function lmFreeze(pg){const sel={...(pg.lmSel||{})};lmList(pg).forEach((n,i)=>{s
 function labelPhotos(pg){
   const ls=lmList(pg),ok=new Set(ls.filter((n,i)=>lmOn(pg,n,i)));
   // one entry per switched-on landmark (a photo can have two), or one without a landmark
+  // towns (and regions standing in for them) are switched one by one as well; a town that is off is left out
   return labelPhotosAll(pg).flatMap(p=>{if(!p)return [null];const on=p.pois.filter(n=>ok.has(shortName(n)));
-    return on.length?on.map(poi=>({...p,poi})):[{...p,poi:null}]});
+    const q={...p,town:p.town&&placeOn(pg,'t',p.town)?p.town:null,region:p.region&&placeOn(pg,'t',p.region)?p.region:null};
+    return on.length?on.map(poi=>({...q,poi})):[{...q,poi:null}]});
 }
-function labelFlags(pg){return {...labelDefaults(labelPhotos(pg)),...(pg.lf||{})}}
+// towns and countries, one by one (user's request): pg.tSel {town: on/off}, pg.cSel {country code: on/off}; by
+// default they follow the part defaults (town and country only abroad)
+function placeOn(pg,k,n){const o=(pg[k+'Sel']||{})[n];return o!=null?o:!!labelFlags(pg)[k]}
+function labelFlags(pg){return {...labelDefaults(labelPhotosAll(pg)),...(pg.lf||{})}}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  return composeLabel(labelPhotos(pg),[...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>p.date),{...labelFlags(pg),l:true},countryCs,Infinity);
+  return composeLabel(labelPhotos(pg),[...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>p.date),{...labelFlags(pg),l:true,t:true,c:true},
+    cc=>placeOn(pg,'c',cc)?countryCs(cc):'',Infinity); // a country that is off reads '' and is left out
 }
 // older sets stored a mode (pg.lm: auto/date/both/off) and a landmark/town choice (pg.pl, pg.ld); turn them into parts
 function migrateLabel(pg){
@@ -1219,7 +1225,7 @@ addEventListener('pagehide',flushSave);document.addEventListener('visibilitychan
 async function saveState(){
   try{
     await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,tSel:pg.tSel,cSel:pg.cSel,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -1936,7 +1942,17 @@ function syncLabelMode(){
   set('l',gs==='none'?'No location':!looked?'Find landmarks':gs!=='ready'?'Looking up…':nc.length?(nc.some(k=>poiNearErr.has(k))?'Search failed · retry':ls.length?'More nearby':'Search nearby'):'No landmark nearby',gs==='none'||(gs==='ready'&&!nc.length));
   lb.hidden=gs==='ready'&&!nc.length&&ls.length>0; // nothing more to do: the landmark chips say it all
   lb.setAttribute('aria-pressed','false'); // an action (find/search) or a state, never a part that is on
-  set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
+  // a chip per town (or region) and per country; the plain Town / Country chip stays only as an empty placeholder
+  const all=labelPhotosAll(pg).filter(Boolean),towns=[...new Set(all.map(p=>p.town||p.region).filter(Boolean))],ccs=[...new Set(all.map(p=>p.cc).filter(Boolean))];
+  box.querySelectorAll('.part.pl').forEach(e=>e.remove());
+  const chips=(k,list,txt)=>{const ph=box.querySelector(`[data-p="${k}"]`);ph.hidden=list.length>0;
+    list.forEach(n=>{const b=document.createElement('button');b.className='part pl';b.innerHTML='<span></span>';b.querySelector('span').textContent=txt(n);b.title=txt(n);
+      b.setAttribute('aria-pressed',!custom&&placeOn(pg,k,n));
+      b.onclick=()=>{if(typeof pg.label==='string'){delete pg.label;touched(pg);refresh();return}
+        pg[k+'Sel']={...(pg[k+'Sel']||{}),[n]:!placeOn(pg,k,n)};touched(pg);refresh()};
+      box.insertBefore(b,ph)})};
+  chips('t',towns,n=>n);chips('c',ccs,countryCs);
+  set('t','Town',true);set('c','Country',true);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);
   // the label as text: on a phone held upright the caption on the preview is too small to read
   const t=labelFor(pg),el=$('labelText');el.textContent=t||'No label';el.classList.toggle('none',!t);

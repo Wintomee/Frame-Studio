@@ -141,6 +141,11 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   landmarks is now only the state / action: "Looking up…", "Search nearby" (no landmark yet) or "More nearby" (every
   spot not yet searched, `nearCand`), hidden when there is nothing left to do. Pending saves are flushed on
   pagehide / hide (`flushSave`).
+  **Towns and countries are switched one by one too** (user's request): a chip per town (or region) and per country,
+  `pg.tSel` / `pg.cSel` (by town name / country code) over the part defaults (`placeOn`; town and country on only
+  abroad). `labelPhotos` drops towns/regions that are off; `labelFor` passes a country function that returns '' for a
+  country that is off, so `composeLabel` stays unchanged. The plain Town / Country chips remain only as disabled
+  placeholders when there is nothing to show.
   **UI**: one wrapping row on the Layout tab (`#labelParts`): a button per part that shows its value even while off
   (on = solid accent, off = dashed), so a long or wrong landmark is visible before switching it on, plus ✎ for typed
   text (`pg.label`; tapping a part leaves typed text). Under the row the full label is shown as text (`#labelText`,
