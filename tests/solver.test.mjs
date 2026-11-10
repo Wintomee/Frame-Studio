@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -109,25 +109,30 @@ test('places: holiday islands by island name, mainland next to them is not', () 
   assert.equal(at(35.3387, 25.1442).name, 'Kréta');                            // Heraklion
 });
 
-test('label text: dates in Czech, place only abroad on auto, two places and countries', () => {
-  const d = (y, m) => new Date(y, m, 15).getTime(), P = (name, cc) => ({ name, cc });
-  assert.equal(LB.czDate([d(2025, 7), d(2025, 7)]), 'srpen 2025');
+test('label parts: each part on its own, runs of one country share it, defaults per country', () => {
+  const d = (y, m) => new Date(y, m, 15).getTime(), P = (town, cc, poi = null) => ({ town, cc, poi });
+  const all = { l: true, t: true, c: true, d: true }, L = (ph, f, ds = [d(2025, 6)]) => LB.composeLabel(ph, ds, { l: false, t: false, c: false, d: false, ...f }, cn);
   assert.equal(LB.czDate([d(2025, 7), d(2025, 8)]), 'srpen – září 2025');
   assert.equal(LB.czDate([d(2024, 11), d(2025, 0)]), 'prosinec 2024 – leden 2025');
-  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'auto', cn), 'červen 2025');
-  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Brno', 'CZ')], [d(2025, 5)], 'both', cn), 'Praha · Brno · červen 2025');
-  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Paříž', 'FR'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž & Lyon, Francie · červenec 2025');
-  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Lyon', 'FR'), P('Nice', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž · Lyon · Nice, Francie · červenec 2025');
-  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Vídeň', 'AT'), P('Lyon', 'FR')], [d(2025, 6)], 'auto', cn), 'Paříž, Francie · Vídeň, Rakousko · Lyon, Francie · červenec 2025');
-  assert.equal(LB.labelText([P('Paříž', 'FR'), P('Lyon', 'FR'), P('Vídeň', 'AT')], [d(2025, 6)], 'auto', cn), 'Paříž & Lyon, Francie · Vídeň, Rakousko · červenec 2025');
-  assert.equal(LB.labelText([P('Vídeň', 'AT'), P('Brno', 'CZ')], [d(2025, 6)], 'auto', cn), 'Vídeň, Rakousko · Brno · červenec 2025');
-  assert.equal(LB.labelText([], [d(2025, 6)], 'auto', cn), 'červenec 2025');
-  assert.equal(LB.labelText([P('Praha', 'CZ')], [d(2025, 6)], 'off', cn), '');
-  const many = [P('Praha', 'CZ'), P('Brno', 'CZ'), P('Brno', 'CZ'), P('Olomouc', 'CZ'), P('Zlín', 'CZ')];
-  assert.equal(LB.labelText(many, [d(2025, 6)], 'both', cn), 'Praha · Brno · Olomouc · Zlín · červenec 2025');
+  const prague = [P('Praha', 'CZ', 'Staroměstský orloj'), P('Praha', 'CZ')];
+  assert.equal(L(prague, { l: true, d: true }), 'Staroměstský orloj · červenec 2025');
+  assert.equal(L(prague, { l: true, t: true, d: true }), 'Staroměstský orloj, Praha · červenec 2025');      // town not repeated
+  assert.equal(L([...prague, P('Praha', 'CZ', 'Karlův most')], { l: true, t: true }), 'Staroměstský orloj · Karlův most, Praha');
+  assert.equal(L(prague, { t: true }), 'Praha');                                   // town alone works at home too
+  assert.equal(L(prague, { c: true }), 'Česko');
+  assert.equal(L(prague, { d: true }), 'červenec 2025');
+  assert.equal(L(prague, {}), '');
+  assert.equal(L([P('Paříž', 'FR'), P('Lyon', 'FR')], { t: true, c: true, d: true }), 'Paříž & Lyon, Francie · červenec 2025');
+  assert.equal(L([P('Paříž', 'FR'), P('Lyon', 'FR'), P('Nice', 'FR')], { t: true, c: true }), 'Paříž · Lyon · Nice, Francie');
+  assert.equal(L([P('Paříž', 'FR'), P('Vídeň', 'AT'), P('Lyon', 'FR')], { t: true, c: true }), 'Paříž, Francie · Vídeň, Rakousko · Lyon, Francie');
+  assert.equal(L([P('Paříž', 'FR'), P('Lyon', 'FR')], { t: true }), 'Paříž & Lyon');            // country off
+  assert.equal(L([P('Paříž', 'FR', 'Eiffelova věž'), P('Lyon', 'FR')], { l: true, c: true }), 'Eiffelova věž, Francie');
+  assert.deepEqual(LB.labelDefaults(prague), { d: true, l: true, t: false, c: false });
+  assert.deepEqual(LB.labelDefaults([P('Paříž', 'FR')]), { d: true, l: true, t: true, c: true });
+  assert.deepEqual(LB.labelPreview([P('Paříž', 'FR', 'Eiffelova věž'), P('Paříž', 'FR')], [d(2025, 6)], cn), { l: ['Eiffelova věž'], t: ['Paříž'], c: ['Francie'], d: 'červenec 2025' });
 });
 
-test('landmarks: picks what you stand in, then a sight nearby, then the national park; auto at home shows only landmarks', () => {
+test('landmarks: picks what you stand in, then a sight nearby, then the national park', () => {
   const area = (name, tags, b) => ({ type: 'way', tags: { name, ...tags }, bounds: b });
   const pt = (name, tags, lat, lon) => ({ type: 'node', tags: { name, ...tags }, lat, lon });
   const box = (la, lo, d) => ({ minlat: la - d, minlon: lo - d, maxlat: la + d, maxlon: lo + d });
@@ -148,10 +153,6 @@ test('landmarks: picks what you stand in, then a sight nearby, then the national
   assert.match(q, /^\[out:json\].*make spot k="50\.088,14\.421";out;is_in\(50\.088,14\.421\).*make spot k="48\.858,2\.294";out;is_in\(48\.858,2\.294\)/);
   const parts = LB.poiSplit({ elements: [{ type: 'spot', tags: { k: 'a' } }, { type: 'node', id: 1 }, { type: 'spot', tags: { k: 'b' } }, { type: 'spot', tags: { k: 'c' } }, { type: 'way', id: 2 }] });
   assert.deepEqual([...parts].map(([k, v]) => [k, v.length]), [['a', 1], ['b', 0], ['c', 1]]);
-  const d = new Date(2025, 8, 3).getTime(), P = (name, cc, poi) => ({ name, cc, poi });
-  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Stromovka', 'CZ', true)], [d], 'auto', cn), 'Stromovka · září 2025');
-  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Praha', 'CZ')], [d], 'auto', cn), 'září 2025');
-  assert.equal(LB.labelText([P('Národní park Teide', 'ES', true)], [d], 'auto', cn), 'Národní park Teide, Španělsko · září 2025');
 });
 
 console.log(`\n${n} tests passed`);
