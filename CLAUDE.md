@@ -156,8 +156,12 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   shows **"Search nearby"** on its landmark part (user's request: on demand, because it can be slow and most images
   don't need it; doing it automatically for every miss was overkill). Tapping it queues `near:<spot>` items at the front
   of `poiQ` for that image's spots (`nearCand`); `poiNear` asks Overpass (`poiNearQuery`/`poiNearPick`: named sights
-  within 300 m, nearest first, else a lake; 25 s timeout) and marks the spot `deep`. Deep spots without a result read
-  "No landmark nearby". A failure shows one hint and can be tapped again. The queue (`poiQ`,
+  within 300 m, nearest first, else a lake within 800 m, else the national park / protected area (any class) /
+  nature reserve the spot is in; 30 s timeout per server, falling through `POI_NEAR_SERVERS`: overpass-api.de,
+  overpass.private.coffee, overpass.kumi.systems) and marks the spot `deep`. Deep spots without a result read "No
+  landmark nearby". A failure shows one hint with the reason and can be tapped again. "Search nearby" is shown unpressed
+  (an action, not a part that is on). The filmstrip keeps its scroll position across re-renders (lookups re-render it)
+  and only scrolls to the active image when the selection changes (`stripAt`). The queue (`poiQ`,
   `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
   1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
   coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query

@@ -162,12 +162,19 @@ test('landmarks: Nominatim answer -> landmark only when it is one and you are in
   assert.deepEqual(LB.poiNominatim({ error: 'Unable to geocode' }, 0, 0), { v: 3, name: null, cc: null, town: null, state: null });
   // no landmark from Nominatim (its nearest was the car park): sights within 300 m, nearest first, else the lake
   const q = LB.poiNearQuery(48.714, -121.098);
-  assert.match(q, /^\[out:json\]\[timeout:10\];nwr\(around:300,48\.714,-121\.098\)->\.n;\(nwr\.n\[/);
+  assert.match(q, /^\[out:json\]\[timeout:25\];nwr\(around:300,48\.714,-121\.098\)->\.n;\(nwr\.n\[/);
   assert.doesNotMatch(q, /\[~"/);
   const lake = { type: 'way', tags: { name: 'Diablo Lake', natural: 'water', water: 'reservoir' }, center: { lat: 48.72, lon: -121.12 } };
   assert.equal(LB.poiNearPick({ elements: [lake, { type: 'node', tags: { name: 'Diablo Lake Overlook', tourism: 'viewpoint' }, lat: 48.7137, lon: -121.0984 }] }, 48.714, -121.098), 'Diablo Lake Overlook');
   assert.equal(LB.poiNearPick({ elements: [lake] }, 48.714, -121.098), 'Diablo Lake');
   assert.equal(LB.poiNearPick({ elements: [] }, 48.714, -121.098), null);
+  // nothing named nearby: the protected area you are in (national park first, else the smallest)
+  const pa = (name, tags, d) => ({ type: 'relation', tags: { name, ...tags }, bounds: { minlat: 48.7 - d, minlon: -121.1 - d, maxlat: 48.7 + d, maxlon: -121.1 + d } });
+  assert.equal(LB.poiNearPick({ elements: [pa('Ross Lake National Recreation Area', { boundary: 'protected_area', protect_class: '5' }, .3)] }, 48.714, -121.098), 'Ross Lake National Recreation Area');
+  assert.equal(LB.poiNearPick({ elements: [pa('Big', { boundary: 'protected_area' }, .1), pa('NP', { boundary: 'national_park' }, .5)] }, 48.714, -121.098), 'NP');
+  assert.equal(LB.poiNearPick({ elements: [pa('NP', { boundary: 'national_park' }, .5), lake] }, 48.714, -121.098), 'Diablo Lake');
+  assert.match(q, /way\(around:800,48\.714,-121\.098\)/);
+  assert.match(q, /is_in\(48\.714,-121\.098\)/);
   assert.match(LB.poiUrl('50.088,14.421'), /^https:\/\/nominatim\.openstreetmap\.org\/reverse\?.*lat=50\.088&lon=14\.421.*accept-language=cs/);
 });
 

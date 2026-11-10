@@ -675,17 +675,24 @@ function poiNominatim(json,lat,lon){
 }
 /* Nominatim gives only the single nearest feature: at a viewpoint that is often its car park. When it gives no landmark,
    one light Overpass query looks for named sights and lakes within 300 m (spatial first, key=value filters only). */
+// sights within 300 m (spatial first: everything around, then filtered by key=value), lakes within 800 m (from a
+// viewpoint above a lake the shore is far below), and the national park / protected area you are in
 function poiNearQuery(lat,lon){
-  const f=['nwr.n[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]','nwr.n[historic~"^(castle|ruins|monument|fort|archaeological_site)$"][name]',
-    'nwr.n[natural~"^(peak|volcano|waterfall|beach|cave_entrance|glacier)$"][name]','nwr.n[man_made=lighthouse][name]','nwr.n[natural=water][water~"^(lake|reservoir|lagoon)$"][name]'];
-  return `[out:json][timeout:10];nwr(around:300,${lat},${lon})->.n;(${f.join(';')};);out tags center;`;
+  const f=['nwr.n[tourism~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"][name]','nwr.n[historic~"^(castle|ruins|monument|fort|archaeological_site|monastery|church)$"][name]',
+    'nwr.n[natural~"^(peak|volcano|waterfall|beach|cave_entrance|glacier|rock|cliff)$"][name]','nwr.n[man_made=lighthouse][name]'];
+  const w='[natural=water][water~"^(lake|reservoir|lagoon)$"][name]',pa='[boundary~"^(national_park|protected_area)$"][name]';
+  return `[out:json][timeout:25];nwr(around:300,${lat},${lon})->.n;(${f.join(';')};);out tags center;`+
+    `way(around:800,${lat},${lon})->.w;rel(around:800,${lat},${lon})->.r;(way.w${w};rel.r${w};);out tags center;`+
+    `is_in(${lat},${lon})->.a;(way(pivot.a)${pa};rel(pivot.a)${pa};way(pivot.a)[leisure=nature_reserve][name];rel(pivot.a)[leisure=nature_reserve][name];);out tags bb;`;
 }
 function poiNearPick(json,lat,lon){
-  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,sights=[],lakes=[];
+  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,sights=[],lakes=[],areas=[];
   for(const e of (json&&json.elements)||[]){const t=e.tags||{},c=e.center||e;if(!nm(t))continue;
-    if(t.natural==='water')lakes.push(nm(t));else if(c.lat!=null)sights.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
-  sights.sort((a,b)=>a.km-b.km);
-  return sights.length?sights[0].name:lakes[0]||null; // a sight first, else the lake you stand by
+    if(e.bounds){const b=e.bounds;areas.push({name:nm(t),np:t.boundary==='national_park'||String(t.protect_class)==='2',km:kmBetween({lat:b.minlat,lon:b.minlon},{lat:b.maxlat,lon:b.maxlon})})}
+    else if(t.natural==='water'&&t.water)lakes.push({name:nm(t),km:c.lat!=null?kmBetween({lat,lon},{lat:c.lat,lon:c.lon}):99});
+    else if(c.lat!=null)sights.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
+  sights.sort((a,b)=>a.km-b.km);lakes.sort((a,b)=>a.km-b.km);areas.sort((a,b)=>(b.np-a.np)||(a.km-b.km));
+  return (sights[0]||lakes[0]||areas[0]||{name:null}).name; // a sight, else the lake, else the park you are in
 }
 function poiLandmark(json,lat,lon){
   if(!json||json.error||!json.category)return null;
@@ -1009,15 +1016,22 @@ function poiEnqueue(photos,force){
   for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
   syncPoiBadge();poiRun();
 }
-// on demand only (it can be slow): Overpass for named sights and lakes within 300 m; failure = {ovFail:true}
+// on demand only (it can be slow): Overpass, see poiNearQuery; failure = {ovFail: reason}
 let poiNearWarned=false;
+// several public servers with the same data; the first that answers wins
+const POI_NEAR_SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
 async function poiNear(lat,lon){
-  try{
-    const ac=new AbortController(),to=setTimeout(()=>ac.abort(),25000);
-    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:poiNearQuery(lat,lon)}),signal:ac.signal}).finally(()=>clearTimeout(to));
-    if(!r.ok)throw 0;const json=await r.json();if(json.remark&&/error|timed out|timeout|memory/i.test(json.remark))throw 0;
-    poiNearWarned=false;return {name:poiNearPick(json,lat,lon)};
-  }catch{return {ovFail:true}}
+  let why='';
+  for(const url of POI_NEAR_SERVERS){
+    try{
+      const ac=new AbortController(),to=setTimeout(()=>ac.abort(),30000);
+      const r=await fetch(url,{method:'POST',body:new URLSearchParams({data:poiNearQuery(lat,lon)}),signal:ac.signal}).finally(()=>clearTimeout(to));
+      if(!r.ok){why=`HTTP ${r.status}`;continue}
+      const json=await r.json();if(json.remark&&/error|timed out|timeout|memory/i.test(json.remark)){why='server timeout';continue}
+      return {name:poiNearPick(json,lat,lon)};
+    }catch(e){why=e&&e.name==='AbortError'?'no answer':'no connection'}
+  }
+  return {ovFail:why};
 }
 async function poiRun(){
   if(poiBusy)return;poiBusy=true;let backoff=3000;
@@ -1026,7 +1040,7 @@ async function poiRun(){
     try{
       if(k.startsWith('near:')){ // "Search nearby" tapped on an image: one Overpass query for this spot
         const sk=k.slice(5),[la,lo]=sk.split(',').map(Number),near=await poiNear(la,lo),i=poiQ.indexOf(k);if(i>=0)poiQ.splice(i,1);
-        if(near.ovFail){if(!poiNearWarned){poiNearWarned=true;hint('Nearby search failed. Try again later.')}}
+        if(near.ovFail){if(!poiNearWarned){poiNearWarned=true;hint(`Nearby search failed (${near.ovFail}). Try again later.`)}}
         else POI.set(sk,{...POI.get(sk),name:near.name,deep:true});
         poiSaveCache(!poiQ.some(x=>x.startsWith('near:')));clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},100);
         syncPoiBadge();continue;
@@ -1704,8 +1718,9 @@ $('bHelp').onclick=showTour;$('tourOk').onclick=()=>$('tour').hidden=true;
 $('tour').onclick=e=>{if(e.target.id==='tour')$('tour').hidden=true};
 
 /* ---------- filmstrip ---------- */
+let stripAt='';
 function renderStrip(){
-  const wrap=$('strip');wrap.innerHTML='';
+  const wrap=$('strip'),keep=wrap.scrollLeft;wrap.innerHTML=''; // rebuilding would reset the scroll; put it back below
   S.pages.forEach((pg,i)=>{
     const b=document.createElement('button');b.className='thumb';b.dataset.pg=pg.id;b.setAttribute('aria-current',i===S.active);
     b.setAttribute('aria-label',`Image ${i+1}${pg.locked?', locked':''}`);
@@ -1717,7 +1732,9 @@ function renderStrip(){
   });
   const add=document.createElement('button');add.className='addthumb';add.innerHTML=svg('plus');add.setAttribute('aria-label','Import more photos');add.onclick=openImport;wrap.appendChild(add);
   if(S.pages.length){const w=document.createElement('button');w.className='addthumb';w.innerHTML=svg('rules');w.setAttribute('aria-label','Auto-arrange rules');w.title='Auto-arrange rules';w.onclick=openSheet;wrap.appendChild(w)}
-  const cur=wrap.querySelector('[aria-current="true"]');if(cur)cur.scrollIntoView({block:'nearest',inline:'nearest'});
+  // only when the selection changes: background lookups re-render the strip and must not yank it back while you scroll
+  wrap.scrollLeft=keep;
+  const cur=wrap.querySelector('[aria-current="true"]');if(cur&&stripAt!==S.active+':'+S.pages.length){stripAt=S.active+':'+S.pages.length;cur.scrollIntoView({block:'nearest',inline:'nearest'})}
 }
 function drawThumbFor(pg){if(!pg)return;const c=document.querySelector(`.thumb[data-pg="${pg.id}"] canvas`);if(c)drawInto(c,stOf(pg));}
 
@@ -1891,7 +1908,7 @@ function syncLabelMode(){
   const set=(k,txt,dis)=>{const b=box.querySelector(`[data-p="${k}"]`);b.querySelector('span').textContent=txt;b.title=txt;b.disabled=!!dis;b.setAttribute('aria-pressed',!custom&&!dis&&!!f[k])};
   const lb=box.querySelector('[data-p="l"]');lb.className='part '+(gs==='none'?'g-none':!looked?'g-no':gs==='ready'?'g-ok':'g-wait');
   set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?(nearCand(pg).length?'Search nearby':'No landmark nearby'):'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length&&!nearCand(pg).length));
-  if(!looked&&gs!=='none')lb.setAttribute('aria-pressed','false');
+  if((!looked&&gs!=='none')||(gs==='ready'&&!pv.l.length))lb.setAttribute('aria-pressed','false'); // an action (find/search), not a part that is on
   set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);
   // the label as text: on a phone held upright the caption on the preview is too small to read
