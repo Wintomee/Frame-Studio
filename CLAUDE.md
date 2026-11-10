@@ -144,7 +144,9 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   is not cached and shows one message). A small pin + % pill on the preview (`#poiBadge`) shows progress. Export waits
   up to a minute for pending lookups of the images being exported. `placeFor` uses the landmark instead of the town
   for photos that have one; per image `pg.ld` = landmarks (default) / towns, in a "Place" row on the Layout tab shown
-  when the label can show places. **Auto at home now shows landmarks** ("Staroměstský orloj · září 2025") and still
+  when the label can show places. With online lookups off, that row instead offers "Find landmarks" (`#lblFind`, user's
+  request): it sets `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`), and `placeFor` then uses its
+  landmarks; `pg.on` is saved and pending lookups resume after a restart. **Auto at home now shows landmarks** ("Staroměstský orloj · září 2025") and still
   only the date when there are none. Not verified against the live service from the dev container (blocked); tested
   with stand-in answers in Overpass's format.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
