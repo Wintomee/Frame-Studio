@@ -139,18 +139,17 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   (`pg.lm`, `pg.pl`, `pg.ld`, set-wide `st.labelMode`) are converted by `migrateLabel` on restore.
 - **Landmarks online** (user's request, on by default, `S.online` in localStorage): a "Detailed places (online)" toggle
   above the empty-state import square (`#onlTop`, hidden once a set exists) and on the review screen (`#onlRvCb`).
-  `poiQuery`/`poiBatchQuery`/`poiSplit`/`poiPick` (pure, LABELS block) ask **Overpass** (`overpass-api.de`, not Nominatim: Overpass can ask what a
-  point lies *in*) for named areas containing the photo (park, garden, beach, zoo, castle grounds, attraction, nature
-  reserve, national park; protected areas only with protect_class 2) and named sights within 150 m (attraction, museum,
-  viewpoint, castle, ruins, monument, fort, peak, waterfall, beach, cave, lighthouse). Pick: smallest containing area
-  under ~3 km across → nearest sight → national park → none. Names prefer `name:cs`. Filters are key=value (indexed);
-  the first version used a regex over key names, which was slow enough to trip the public server's rate limits (user
-  saw ~1 photo a minute). The "within 150 m" part is spatial first (`nwr(around)->.n` then filter `.n` by tags); tag-first
-  `around` can scan the whole planet. Then the user saw it stall at 17 %: a timed-out answer comes back as HTTP 200 with a
-  `remark` (`poiFailed`) and is retried, never cached as "nothing here"; each request has a 45 s timeout; a busy server
-  hands over to the second public instance (`POI_SERVERS`: overpass-api.de, overpass.kumi.systems). The queue (`poiQ`,
-  `poiRun`) runs in the background from the moment photos are picked, up to 4 spots per request (a `make spot k=…`
-  marker before each spot's answer), ≥1.1 s apart, back-off 5→10→20…60 s on 429/5xx/offline; only
+  `poiUrl`/`poiNominatim` (pure, LABELS block) ask **Nominatim reverse** (`nominatim.openstreetmap.org/reverse`, zoom 18,
+  `layer=poi,natural,manmade`, `accept-language=cs`) for the nearest point of interest or natural feature, one light GET
+  per spot. `POI_OK` lists the category/type pairs that count as landmarks (museum, viewpoint, castle, ruins, monument,
+  park, garden, beach, peak, waterfall, lighthouse, national park; protected areas only with protect_class 2); anything
+  else (café, shop…) gives no landmark. Accepted when the photo is inside its bounding box (under ~3 km across, any size
+  for national parks/reserves/islands) or within ~200 m. Overpass was used first and dropped: even after slimming the
+  query (key=value filters, spatial-first `around`, batches) the public servers mostly answered 429 or timed out on the
+  user's phone ("no answer" / "server busy" cycling). Trade-off: Nominatim gives only the single nearest feature, so a
+  museum 100 m away behind a nearer café is missed. The queue (`poiQ`,
+  `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
+  1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
   coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
   is not cached and shows one message). Progress is a thin bar right above the tab bar with a pin and "3/17" at the far
   left (`#poiBadge`; it first sat on the preview, which hid photos). Filmstrip thumbnails show a pin in the bottom-right
@@ -164,7 +163,7 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   in 20 s"): the user saw 0/38 while 6 images were green, because it counted only new spots. iOS freezes a locked or
   background web app, so lookups can't run then; while they run and the app is open, a screen wake lock keeps the
   phone awake (`poiWake`), and returning to the app cuts the retry wait short (`poiNudge`). Not verified against the live service from the dev container (blocked); tested
-  with stand-in answers in Overpass's format.
+  with stand-in answers in Nominatim's jsonv2 format.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
 - **Editing**: ✎ or tapping the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text in

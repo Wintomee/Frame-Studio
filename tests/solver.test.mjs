@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -138,27 +138,22 @@ test('label parts: each part on its own, runs of one country share it, defaults 
   assert.deepEqual(LB.labelPreview([P('Paříž', 'FR', 'Eiffelova věž'), P('Paříž', 'FR')], [d(2025, 6)], cn), { l: ['Eiffelova věž'], t: ['Paříž'], c: ['Francie'], d: 'červenec 2025' });
 });
 
-test('landmarks: picks what you stand in, then a sight nearby, then the national park', () => {
-  const area = (name, tags, b) => ({ type: 'way', tags: { name, ...tags }, bounds: b });
-  const pt = (name, tags, lat, lon) => ({ type: 'node', tags: { name, ...tags }, lat, lon });
-  const box = (la, lo, d) => ({ minlat: la - d, minlon: lo - d, maxlat: la + d, maxlon: lo + d });
-  // Stromovka: standing in the park, a pavilion 120 m away -> the park
-  assert.deepEqual(LB.poiPick({ elements: [area('Královská obora', { leisure: 'park', 'name:cs': 'Stromovka' }, box(50.106, 14.422, .006)),
-    pt('Místodržitelský letohrádek', { historic: 'castle' }, 50.1065, 14.4235)] }, 50.106, 14.422), { name: 'Stromovka' });
-  // Teide: inside the national park, nothing small around -> the national park, Czech name
-  assert.deepEqual(LB.poiPick({ elements: [area('Parque Nacional del Teide', { boundary: 'national_park', 'name:cs': 'Národní park Teide' }, box(28.27, -16.64, .12))] }, 28.2724, -16.6425), { name: 'Národní park Teide' });
-  // a sight nearby beats the big national park; a landscape protected area (class 5) is ignored
-  assert.deepEqual(LB.poiPick({ elements: [area('Šumava', { boundary: 'national_park' }, box(49, 13.5, .4)), area('CHKO X', { boundary: 'protected_area', protect_class: '5' }, box(50, 14, .01)),
-    pt('Černé jezero', { natural: 'waterfall' }, 49.1805, 13.1810)] }, 49.1800, 13.1800), { name: 'Černé jezero' });
-  assert.equal(LB.poiPick({ elements: [] }, 50, 14), null);
-  assert.match(LB.poiQuery(50.1, 14.4), /is_in\(50\.1,14\.4\).*nwr\(around:150,50\.1,14\.4\)->\.n;\(nwr\.n\[/); // spatial first
-  assert.equal(LB.poiFailed({ remark: 'runtime error: Query timed out in "query" at line 1 after 61 seconds.', elements: [] }), true);
-  assert.equal(LB.poiFailed({ elements: [] }), false);
-  assert.doesNotMatch(LB.poiQuery(50.1, 14.4), /\[~"/);                    // no regex over key names (slow)
-  const q = LB.poiBatchQuery(['50.088,14.421', '48.858,2.294']);
-  assert.match(q, /^\[out:json\].*make spot k="50\.088,14\.421";out;is_in\(50\.088,14\.421\).*make spot k="48\.858,2\.294";out;is_in\(48\.858,2\.294\)/);
-  const parts = LB.poiSplit({ elements: [{ type: 'spot', tags: { k: 'a' } }, { type: 'node', id: 1 }, { type: 'spot', tags: { k: 'b' } }, { type: 'spot', tags: { k: 'c' } }, { type: 'way', id: 2 }] });
-  assert.deepEqual([...parts].map(([k, v]) => [k, v.length]), [['a', 1], ['b', 0], ['c', 1]]);
+test('landmarks: Nominatim answer -> landmark only when it is one and you are in it or near it', () => {
+  const ans = (category, type, name, lat, lon, d, extra = {}) => ({ category, type, name, lat: String(lat), lon: String(lon),
+    boundingbox: [lat - d, lat + d, lon - d, lon + d].map(String), namedetails: { name }, ...extra });
+  // standing in Stromovka (park ~1 km across) -> the park, Czech name first
+  assert.deepEqual(LB.poiNominatim(ans('leisure', 'park', 'Královská obora', 50.106, 14.422, .004, { namedetails: { name: 'Královská obora', 'name:cs': 'Stromovka' } }), 50.1055, 14.421), { name: 'Stromovka' });
+  // a museum 90 m away -> yes; 600 m away -> no
+  assert.deepEqual(LB.poiNominatim(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.079, 14.432), { name: 'Národní muzeum' });
+  assert.equal(LB.poiNominatim(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.084, 14.432), null);
+  // national park: any size; a landscape protected area (class 5) is ignored
+  assert.deepEqual(LB.poiNominatim(ans('boundary', 'national_park', 'Národní park Teide', 28.27, -16.64, .12), 28.2724, -16.6425), { name: 'Národní park Teide' });
+  assert.equal(LB.poiNominatim(ans('boundary', 'protected_area', 'CHKO X', 50, 14, .01, { extratags: { protect_class: '5' } }), 50, 14), null);
+  // a huge park around you is not a landmark; a café is never one; errors -> nothing
+  assert.equal(LB.poiNominatim(ans('leisure', 'park', 'Big', 50, 14, .05), 50, 14), null);
+  assert.equal(LB.poiNominatim(ans('amenity', 'cafe', 'Café Slavia', 50.0815, 14.4135, .0002), 50.0815, 14.4135), null);
+  assert.equal(LB.poiNominatim({ error: 'Unable to geocode' }, 50, 14), null);
+  assert.match(LB.poiUrl('50.088,14.421'), /^https:\/\/nominatim\.openstreetmap\.org\/reverse\?.*lat=50\.088&lon=14\.421.*accept-language=cs/);
 });
 
 console.log(`\n${n} tests passed`);

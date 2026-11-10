@@ -657,43 +657,25 @@ function labelPreview(photos,dates,country){
   const u=a=>[...new Set(a.filter(Boolean))];
   return {l:u(photos.map(p=>p&&shortName(p.poi))).slice(0,2),t:u(photos.map(p=>p&&p.town)),c:u(photos.map(p=>p&&p.cc&&country(p.cc))),d:czDate(dates)};
 }
-/* Landmarks from OpenStreetMap (Overpass API): what the photo stands in (park, beach, castle grounds, national park) and
-   what is within 150 m (sight, museum, viewpoint, castle, waterfall…). OSM tags say what each thing is, so only real
-   landmarks come back. Pure: builds the query and picks from the answer. */
-// Filters by key=value, which Overpass has indexed (a regex over key names scans everything and was slow enough to hit
-// the public server's rate limits: ~1 photo a minute).
-const POI_AREA=['[leisure~"^(park|garden|nature_reserve)$"]','[natural=beach]','[tourism~"^(zoo|theme_park|attraction)$"]','[historic=castle]','[boundary~"^(national_park|protected_area)$"]'];
-const POI_NEAR=['[tourism~"^(attraction|museum|viewpoint|zoo|theme_park)$"]','[historic~"^(castle|ruins|monument|fort|archaeological_site)$"]','[natural~"^(peak|waterfall|beach|cave_entrance)$"]','[man_made=lighthouse]'];
-function poiQuery(lat,lon){
-  // spatial first: everything within 150 m, then filter that small set by tags (tag-first scans the whole planet)
-  const ar=POI_AREA.flatMap(f=>[`way(pivot.a)${f}[name];`,`rel(pivot.a)${f}[name];`]).join(''),nr=POI_NEAR.map(f=>`nwr.n${f}[name];`).join('');
-  return `is_in(${lat},${lon})->.a;(${ar})->.ar;.ar out tags bb;nwr(around:150,${lat},${lon})->.n;(${nr});out tags center;`;
-}
-// several spots in one request; a "spot" marker before each spot's answer tells them apart
-function poiBatchQuery(keys){
-  return '[out:json][timeout:60];'+keys.map(k=>{const [la,lo]=k.split(',');return `make spot k="${k}";out;`+poiQuery(la,lo)}).join('');
-}
-// Overpass answers a timeout or memory error with HTTP 200 and a "remark"; that answer is incomplete, not "nothing here"
-const poiFailed=json=>!!(json&&json.remark&&/error|timed out|timeout|memory/i.test(json.remark));
-function poiSplit(json){
-  const by=new Map();let cur=null;
-  for(const e of (json&&json.elements)||[]){if(e.type==='spot'){cur=e.tags.k;by.set(cur,[]);continue}if(cur)by.get(cur).push(e)}
-  return by;
-}
-function poiPick(json,lat,lon){
-  const nm=t=>t['short_name:cs']||t['name:cs']||t.short_name||t.name,areas=[],near=[]; // OSM's own short names first
-  for(const e of (json&&json.elements)||[]){
-    const t=e.tags||{};if(!nm(t))continue;
-    if(e.bounds){
-      if(t.boundary==='protected_area'&&String(t.protect_class)!=='2')continue; // of protected areas, only national parks
-      const b=e.bounds;areas.push({name:nm(t),km:kmBetween({lat:b.minlat,lon:b.minlon},{lat:b.maxlat,lon:b.maxlon})});
-    }else{const c=e.center||e;if(c.lat!=null)near.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
-  }
-  areas.sort((a,b)=>a.km-b.km);near.sort((a,b)=>a.km-b.km);
-  if(areas[0]&&areas[0].km<3)return {name:areas[0].name}; // a park, beach or castle you are standing in
-  if(near[0])return {name:near[0].name};                   // a sight within 150 m
-  if(areas[0])return {name:areas[0].name};                 // the national park around you
-  return null;
+/* Landmarks from OpenStreetMap via Nominatim reverse geocoding: one light, fast request per spot (Overpass was too heavy
+   for its public servers: on a phone it mostly answered "busy" or not at all). Nominatim returns the nearest point of
+   interest or natural feature; OSM tags (category/type) say whether it is a landmark. Pure: builds the URL, reads the answer. */
+const POI_OK={tourism:/^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$/,historic:/^(castle|ruins|monument|fort|archaeological_site|church|monastery|city_gate|manor|palace|tower)$/,
+  leisure:/^(park|garden|nature_reserve)$/,natural:/^(beach|peak|volcano|waterfall|cave_entrance|bay|cape|glacier|spring|gorge)$/,
+  man_made:/^(lighthouse|tower|bridge)$/,boundary:/^(national_park|protected_area)$/,bridge:/./,waterway:/^waterfall$/,place:/^(island|islet)$/};
+const POI_BIG=/^(national_park|protected_area|nature_reserve|island)$/; // can be any size
+function poiUrl(k){const [la,lo]=k.split(',');
+  return `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${la}&lon=${lo}&zoom=18&layer=poi,natural,manmade&namedetails=1&extratags=1&accept-language=cs`}
+function poiNominatim(json,lat,lon){
+  if(!json||json.error||!json.category)return null;
+  const ok=POI_OK[json.category];if(!ok||!ok.test(json.type))return null;
+  const x=json.extratags||{};if(json.type==='protected_area'&&String(x.protect_class)!=='2')return null; // of protected areas, only national parks
+  const d=json.namedetails||{},name=d['short_name:cs']||d['name:cs']||d.short_name||json.name||d.name;if(!name)return null;
+  const b=(json.boundingbox||[]).map(Number); // [minlat,maxlat,minlon,maxlon]
+  const inside=b.length===4&&lat>=b[0]&&lat<=b[1]&&lon>=b[2]&&lon<=b[3];
+  const size=b.length===4?kmBetween({lat:b[0],lon:b[2]},{lat:b[1],lon:b[3]}):0;
+  if(inside&&size>.05)return (size<3||POI_BIG.test(json.type))?{name}:null; // standing in a park, beach, castle grounds…
+  return kmBetween({lat,lon},{lat:+json.lat,lon:+json.lon})<=.2?{name}:null; // a sight within ~150 m (+ the ~50 m rounding)
 }
 /*LABELS-END*/
 
@@ -987,10 +969,9 @@ function migrateLabel(pg){
   }
   delete pg.lm;delete pg.pl;delete pg.ld;return pg;
 }
-/* ---------- landmarks online: OpenStreetMap via Overpass, queued in the background, one request a second at most.
-   Only rounded coordinates (~100 m) leave the phone; answers are kept in IndexedDB so each spot is asked once. ---------- */
-// two public servers with the same OpenStreetMap data; a busy one hands over to the other
-const POI_SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];let poiSrv=0;
+/* ---------- landmarks online: OpenStreetMap via Nominatim, queued in the background, one request a second at most
+   (its usage policy). Only rounded coordinates (~100 m) leave the phone; answers are kept in IndexedDB so each spot is
+   asked once. ---------- */
 const POI=new Map();let poiNudge=null,poiLock=null,poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
@@ -1002,21 +983,20 @@ function poiEnqueue(photos,force){
   syncPoiBadge();poiRun();
 }
 async function poiRun(){
-  if(poiBusy)return;poiBusy=true;let backoff=5000;
+  if(poiBusy)return;poiBusy=true;let backoff=3000;
   while(poiQ.length){ // switching online off empties the queue
-    const keys=poiQ.slice(0,4);let wait=1100; // up to 4 spots per request
+    const k=poiQ[0];let wait=1100,t0=Date.now();
     try{
-      const ac=new AbortController(),to=setTimeout(()=>ac.abort(),45000);   // never hang on a stuck request
-      const r=await fetch(POI_SERVERS[poiSrv],{method:'POST',body:new URLSearchParams({data:poiBatchQuery(keys)}),signal:ac.signal}).finally(()=>clearTimeout(to));
-      if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry these spots after a pause
-      const json=r.ok?await r.json():null;if(poiFailed(json))throw new Error('incomplete'); // timed out on the server
-      if(r.ok){const by=poiSplit(json);for(const k of keys){const [la,lo]=k.split(',').map(Number);POI.set(k,poiPick({elements:by.get(k)||[]},la,lo))}}
+      const ac=new AbortController(),to=setTimeout(()=>ac.abort(),15000);   // a normal answer takes well under a second
+      const r=await fetch(poiUrl(k),{signal:ac.signal}).finally(()=>clearTimeout(to));
+      if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry this spot after a pause
+      if(r.ok){const [la,lo]=k.split(',').map(Number);POI.set(k,poiNominatim(await r.json(),la,lo))}
       else if(!poiWarned){poiWarned=true;hint(`Landmark lookup failed (HTTP ${r.status}). Labels use towns for now.`)} // not remembered: asked again next time
-      poiQ.splice(0,keys.length);poiDone+=keys.length;backoff=5000;poiErr='';poiSaveCache();
+      if(poiQ[0]===k)poiQ.shift();poiDone++;backoff=3000;poiErr='';poiSaveCache();wait=Math.max(0,1100-(Date.now()-t0));
       clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},400);
-    }catch(e){wait=backoff;backoff=Math.min(60000,backoff*2);poiSrv=(poiSrv+1)%POI_SERVERS.length; // busy/offline: other server, 5 s, 10 s … 1 min
-      poiErr=(e&&e.message==='busy'?'server busy':e&&e.message==='incomplete'?'server slow':e&&e.name==='AbortError'?'no answer':'offline')+`, retry in ${Math.round(wait/1000)} s`}
-    syncPoiBadge();await new Promise(z=>{poiNudge=z;setTimeout(z,wait)}); // a return to the app cuts the wait short
+    }catch(e){wait=backoff;backoff=Math.min(30000,backoff*2); // busy/offline: 3 s, 6 s … 30 s
+      poiErr=(e&&e.message==='busy'?'server busy':e&&e.name==='AbortError'?'no answer':'offline')+`, retry in ${Math.round(wait/1000)} s`}
+    syncPoiBadge();if(wait)await new Promise(z=>{poiNudge=z;setTimeout(z,wait)}); // a return to the app cuts the wait short
   }
   poiBusy=false;if(!poiQ.length)poiDone=poiTotal=0;syncPoiBadge();
 }
