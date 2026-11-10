@@ -154,9 +154,9 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
   is not cached and shows one message). Progress is a thin bar right above the tab bar with a pin and "3/17" at the far
   left (`#poiBadge`; it first sat on the preview, which hid photos). Filmstrip thumbnails show a pin in the bottom-right
-  corner, no backdrop, mostly outside the picture (`geoState`: none = lookups off or no GPS, dark red = waiting,
-  green = ready; colours `--geo-no`/`--geo-ok`, used for every pin). Export waits
-  up to a minute for pending lookups of the images being exported. `placeFor` uses the landmark instead of the town
+  corner, no backdrop, mostly outside the picture (`geoState`: crossed = no GPS, nothing = lookups off, dark red =
+  waiting, green = ready; colours `--geo-no`/`--geo-ok`, used for every pin). Export waits
+  up to a minute for pending lookups of the images being exported.
   The landmark part carries the lookup state (`geoState`: green ready, dark red waiting, crossed out without GPS; the
   filmstrip pins use the same states). With online lookups off it reads "Find landmarks" (user's request): it sets
   `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`); `pg.on` is saved and pending lookups resume
