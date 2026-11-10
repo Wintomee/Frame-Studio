@@ -134,18 +134,22 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   mode was set-wide (`st.labelMode`) carry it into each image on restore.
 - **Landmarks online** (user's request, on by default, `S.online` in localStorage): a "Detailed places (online)" toggle
   above the empty-state import square (`#onlTop`, hidden once a set exists) and on the review screen (`#onlRvCb`).
-  `poiQuery`/`poiPick` (pure, LABELS block) ask **Overpass** (`overpass-api.de`, not Nominatim: Overpass can ask what a
+  `poiQuery`/`poiBatchQuery`/`poiSplit`/`poiPick` (pure, LABELS block) ask **Overpass** (`overpass-api.de`, not Nominatim: Overpass can ask what a
   point lies *in*) for named areas containing the photo (park, garden, beach, zoo, castle grounds, attraction, nature
   reserve, national park; protected areas only with protect_class 2) and named sights within 150 m (attraction, museum,
   viewpoint, castle, ruins, monument, fort, peak, waterfall, beach, cave, lighthouse). Pick: smallest containing area
-  under ~3 km across → nearest sight → national park → none. Names prefer `name:cs`. The queue (`poiQ`, `poiRun`) runs
-  in the background from the moment photos are picked, one request per ≥1.1 s, 30 s back-off when busy/offline; only
+  under ~3 km across → nearest sight → national park → none. Names prefer `name:cs`. Filters are key=value (indexed);
+  the first version used a regex over key names, which was slow enough to trip the public server's rate limits (user
+  saw ~1 photo a minute). The queue (`poiQ`, `poiRun`) runs in the background from the moment photos are picked, up to
+  8 spots per request (a `make spot k=…` marker before each spot's answer), ≥1.1 s apart, back-off 5→10→20…60 s on 429/5xx/offline; only
   coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
-  is not cached and shows one message). A small pin + % pill on the preview (`#poiBadge`) shows progress. Export waits
+  is not cached and shows one message). A small pin + % pill just above the tab bar, on the right (`#poiBadge`; it used to
+  sit on the preview, which hid photos), shows progress. Filmstrip thumbnails show a corner pin per image (`geoState`:
+  none = lookups off or no GPS, grey = waiting, accent = ready). Export waits
   up to a minute for pending lookups of the images being exported. `placeFor` uses the landmark instead of the town
-  for photos that have one; per image `pg.ld` = landmarks (default) / towns, in a "Place" row on the Layout tab shown
-  when the label can show places. With online lookups off, that row instead offers "Find landmarks" (`#lblFind`, user's
-  request): it sets `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`), and `placeFor` then uses its
+  for photos that have one. The Layout tab's Place row (shown when the label can show places) is a status pin
+  (`#lblFind`, class off/wait/ready) and a Town/Landmark switch (`#ldSw`, per image `pg.ld`, landmarks by default). With
+  online lookups off, the pin reads "Find landmarks" (user's request): it sets `pg.on` and queues just that image's photos (`poiEnqueue(…, true)`), and `placeFor` then uses its
   landmarks; `pg.on` is saved and pending lookups resume after a restart. **Auto at home now shows landmarks** ("Staroměstský orloj · září 2025") and still
   only the date when there are none. Not verified against the live service from the dev container (blocked); tested
   with stand-in answers in Overpass's format.
@@ -192,7 +196,8 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
   changed straight away. Cancel drops only the new batch. `S.importing` stays on during the review so its assets aren't
   purged. Rules are not a tab.
 - Tabs: **Layout** (the only place editing gestures work), **Frame** (preview is view-only, no handles or badges),
-  **Export**. The tab bar is compact (icon and label inline, reduced bottom safe area).
+  **Export**. The tab bar is compact (icon and label inline, reduced bottom safe area); the selected tab is drawn as a
+  real tab (accent bar on top, tinted background, bold) so it is obvious which one is open.
 - No status/info row: messages are a transient pill at the top, and photo actions (replace, crop, reset zoom, remove)
   float above the tab bar when a photo is selected. Delete image = ✕ on the active thumbnail. Undo is via the toast.
 - Shuffle and full screen are small stacked buttons at the end of the filmstrip row.

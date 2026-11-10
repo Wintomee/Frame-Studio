@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick,poiBatchQuery,poiSplit};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -141,6 +141,11 @@ test('landmarks: picks what you stand in, then a sight nearby, then the national
     pt('Černé jezero', { natural: 'waterfall' }, 49.1805, 13.1810)] }, 49.1800, 13.1800), { name: 'Černé jezero' });
   assert.equal(LB.poiPick({ elements: [] }, 50, 14), null);
   assert.match(LB.poiQuery(50.1, 14.4), /is_in\(50\.1,14\.4\).*around:150,50\.1,14\.4/);
+  assert.doesNotMatch(LB.poiQuery(50.1, 14.4), /\[~"/);                    // no regex over key names (slow)
+  const q = LB.poiBatchQuery(['50.088,14.421', '48.858,2.294']);
+  assert.match(q, /^\[out:json\].*make spot k="50\.088,14\.421";out;is_in\(50\.088,14\.421\).*make spot k="48\.858,2\.294";out;is_in\(48\.858,2\.294\)/);
+  const parts = LB.poiSplit({ elements: [{ type: 'spot', tags: { k: 'a' } }, { type: 'node', id: 1 }, { type: 'spot', tags: { k: 'b' } }, { type: 'spot', tags: { k: 'c' } }, { type: 'way', id: 2 }] });
+  assert.deepEqual([...parts].map(([k, v]) => [k, v.length]), [['a', 1], ['b', 0], ['c', 1]]);
   const d = new Date(2025, 8, 3).getTime(), P = (name, cc, poi) => ({ name, cc, poi });
   assert.equal(LB.labelText([P('Praha', 'CZ'), P('Stromovka', 'CZ', true)], [d], 'auto', cn), 'Stromovka · září 2025');
   assert.equal(LB.labelText([P('Praha', 'CZ'), P('Praha', 'CZ')], [d], 'auto', cn), 'září 2025');
