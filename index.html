@@ -16,14 +16,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#efefec;--surface:#fafaf8;--text:#1c1e21;--muted:#696d73;--line:#d6d7d3;--accent:#2d5b88;--accent-text:#fff;--bezel:#232527;--warn:#b5482f;
+  --bg:#efefec;--surface:#fafaf8;--text:#1c1e21;--muted:#696d73;--line:#d6d7d3;--accent:#2d5b88;--accent-text:#fff;--bezel:#232527;--warn:#b5482f;--geo-ok:#2f8a4e;--geo-no:#8f2424;
   color-scheme:light;box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;color-scheme:dark}
+  :root:not([data-theme="light"]){--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
 }
-:root[data-theme="dark"]{--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;color-scheme:dark}
+:root[data-theme="dark"]{--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
 [hidden]{display:none !important}
@@ -107,7 +107,10 @@ body.fs header.top{z-index:30}
 .thumb .del{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--text);color:var(--bg);display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .thumb .del svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
 .thumb{overflow:visible}
-.strip{padding-top:7px !important}
+.strip{padding-top:7px !important;padding-bottom:8px !important}
+.thumb .pst{position:absolute;right:-6px;bottom:-7px;width:14px;height:14px;pointer-events:none;filter:drop-shadow(0 0 1.5px var(--bg)) drop-shadow(0 0 1px var(--bg))}
+.thumb .pst svg{width:14px;height:14px;display:block;fill:currentColor;stroke:var(--bg);stroke-width:1.5}.thumb .pst svg circle{fill:var(--bg);stroke:none}
+.thumb .pst.wait{color:var(--geo-no)}.thumb .pst.ready{color:var(--geo-ok)}
 .thumb .lk{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center}
 .thumb .lk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .addthumb{flex:0 0 auto;width:58px;border:1.5px dashed var(--line);border-radius:7px;display:grid;place-items:center;color:var(--muted);background:none;cursor:pointer;aspect-ratio:auto}
@@ -152,24 +155,18 @@ select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);b
 .opts .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 .opts .row .chip{flex:none;white-space:nowrap}
 #labelMode{gap:6px}.lbltext{color:var(--text);font-size:14px;margin-top:-4px;overflow-wrap:anywhere}.lbltext.none{color:var(--muted)}#labelMode .label{min-width:0;margin-right:4px}#labelMode .chip{padding:5px 10px}
-#labelDetail{gap:12px}
-.pinst{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:4px 11px 4px 7px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.pinst svg{width:18px;height:18px;display:block;fill:none;stroke:currentColor;stroke-width:2}
-.pinst.wait,.pinst.ready{border-color:transparent;padding:4px 2px}
+#labelDetail{gap:14px}
+.pinst{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:4px 11px 4px 7px;background:transparent;color:var(--geo-no);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.pinst svg{width:18px;height:18px;display:block;fill:color-mix(in srgb,currentColor 22%,transparent);stroke:currentColor;stroke-width:2}
+.pinst.wait,.pinst.ready{border-color:transparent;padding:4px 0}.pinst.ready{color:var(--geo-ok)}
 .pinst.wait svg{animation:pinpulse 1.1s ease-in-out infinite}
-.pinst.ready{color:var(--accent)}.pinst.ready svg{fill:color-mix(in srgb,var(--accent) 30%,transparent)}
-@keyframes pinpulse{50%{opacity:.35}}@media (prefers-reduced-motion:reduce){.pinst.wait svg{animation:none;opacity:.5}}
+@keyframes pinpulse{50%{opacity:.35}}@media (prefers-reduced-motion:reduce){.pinst.wait svg{animation:none}}
 .ldsw{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
 .ldsw input{appearance:none;-webkit-appearance:none;width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;margin:0;cursor:pointer;transition:background .15s}
 .ldsw input::before{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .ldsw input:checked{background:var(--accent)}.ldsw input:checked::before{transform:translateX(16px)}
 .ldsw input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.thumb .pst{position:absolute;right:6px;bottom:7px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center}
-.thumb .pst svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
-.thumb .pst.wait{background:rgba(0,0,0,.45);color:rgba(255,255,255,.8)}.thumb .pst.ready{background:var(--accent);color:var(--accent-text)}
 .onl{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);padding:2px 0 8px;cursor:pointer}.onl .osm{margin-left:auto;font-size:11px;color:var(--muted)}.rvonl{padding:0 14px 8px}
-.poibadge{position:absolute;bottom:calc(100% + 6px);right:10px;z-index:2;display:flex;align-items:center;gap:3px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 7px 2px 5px;pointer-events:none;font-variant-numeric:tabular-nums}
-.poibadge svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}body.fs .poibadge{display:none}
 .sw.custom{position:relative;overflow:hidden;background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#1abc9c,#3498db,#9b59b6,#e74c3c)}
 .sw.custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;border:0;padding:0}
 .sw.custom i{position:absolute;inset:7px;border-radius:50%;border:2px solid #fff;pointer-events:none}
@@ -194,14 +191,18 @@ details .inner{display:grid;gap:12px}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
 .btn:disabled{opacity:.45;cursor:default}
 .btns{display:grid;gap:8px}
-nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:calc(env(safe-area-inset-bottom,0px) * .4)}
+nav.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:color-mix(in srgb,var(--text) 9%,var(--bg));border-top:1px solid var(--line);padding-bottom:calc(env(safe-area-inset-bottom,0px) * .4)}
 nav.tabbar .wrap{display:flex}
+nav.tabbar .wrap{gap:6px;padding:0 10px 4px}
+nav.tabbar button{position:relative;margin-top:-1px;border:1px solid transparent;border-top:0;border-radius:0 0 12px 12px}
+nav.tabbar button[aria-selected="true"]{color:var(--accent);font-weight:700;background:var(--bg);border-color:var(--line);box-shadow:0 3px 6px -2px rgba(0,0,0,.18)}
+nav.tabbar button[aria-selected="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:4px;height:3px;border-radius:2px;background:var(--accent)}
+.poibar{position:absolute;left:0;right:0;bottom:100%;height:3px;background:color-mix(in srgb,var(--geo-no) 18%,transparent);pointer-events:none}
+.poifill{height:100%;width:0;background:var(--geo-no);transition:width .4s}
+.poilbl{position:absolute;left:8px;bottom:5px;display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);border-radius:6px;padding:1px 5px 1px 3px;font-variant-numeric:tabular-nums}
+.poilbl svg{width:12px;height:12px;fill:none;stroke:var(--geo-no);stroke-width:2.2}body.fs .poibar{display:none}
 nav.tabbar button{flex:1;background:none;border:0;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:9px 0;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 nav.tabbar button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-nav.tabbar .wrap{gap:4px;padding-top:4px}
-nav.tabbar button{border-radius:0 0 10px 10px;position:relative}
-nav.tabbar button[aria-selected="true"]{color:var(--accent);font-weight:700;background:color-mix(in srgb,var(--accent) 12%,var(--surface));box-shadow:inset 0 3px 0 var(--accent)}
-nav.tabbar button:not([aria-selected="true"]):hover{background:color-mix(in srgb,var(--text) 5%,var(--surface))}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:40;display:none;border:2px solid #fff;border-radius:3px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:20px}
@@ -233,8 +234,8 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     <div class="sugs" id="sugs"></div>
     <div class="groups" id="groups"></div>
     <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label for this image"><span class="label">Label</span></div>
-      <div class="row" id="labelDetail" role="group" aria-label="Place detail" hidden><button class="pinst" id="lblFind"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span id="lblFindText">Find landmarks</span></button>
-        <label class="ldsw" id="ldSwWrap"><span>Town</span><input type="checkbox" id="ldSw" role="switch" aria-label="Landmarks instead of towns"><span>Landmark</span></label></div>
+      <div class="row" id="labelDetail" role="group" aria-label="Place in the label" hidden><button class="pinst" id="lblFind"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span id="lblFindText">Find landmarks</span></button>
+        <label class="ldsw" id="ldLmWrap"><span>Landmark</span><input type="checkbox" id="ldLm" role="switch"></label><label class="ldsw"><span>Town</span><input type="checkbox" id="ldTw" role="switch"></label></div>
       <p class="note lbltext" id="labelText" aria-live="polite"></p></div>
   </section>
 
@@ -300,7 +301,7 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     <div class="row"><button class="btn" id="cropCancel">Cancel</button><button class="btn" id="cropReset">Full photo</button><span class="spacer"></span><button class="btn primary" id="cropDone">Done</button></div>
   </div>
 </div>
-<nav class="tabbar" role="tablist"><div class="wrap" id="tabs"></div><div class="poibadge" id="poiBadge" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span id="poiPct"></span></div></nav>
+<nav class="tabbar" role="tablist"><div class="wrap" id="tabs"></div><div class="poibar" id="poiBadge" hidden><div class="poifill" id="poiFill"></div><span class="poilbl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span id="poiPct"></span></span></div></nav>
 
 <canvas class="ghost" id="ghost" width="1" height="1"></canvas>
 <div class="modal" id="lblEdit" hidden>
@@ -648,13 +649,16 @@ function labelText(places,dates,mode,country){
 const POI_AREA=['[leisure~"^(park|garden|nature_reserve)$"]','[natural=beach]','[tourism~"^(zoo|theme_park|attraction)$"]','[historic=castle]','[boundary~"^(national_park|protected_area)$"]'];
 const POI_NEAR=['[tourism~"^(attraction|museum|viewpoint|zoo|theme_park)$"]','[historic~"^(castle|ruins|monument|fort|archaeological_site)$"]','[natural~"^(peak|waterfall|beach|cave_entrance)$"]','[man_made=lighthouse]'];
 function poiQuery(lat,lon){
-  const ar=POI_AREA.flatMap(f=>[`way(pivot.a)${f}[name];`,`rel(pivot.a)${f}[name];`]).join(''),nr=POI_NEAR.map(f=>`nwr(around:150,${lat},${lon})${f}[name];`).join('');
-  return `is_in(${lat},${lon})->.a;(${ar})->.ar;.ar out tags bb;(${nr});out tags center;`;
+  // spatial first: everything within 150 m, then filter that small set by tags (tag-first scans the whole planet)
+  const ar=POI_AREA.flatMap(f=>[`way(pivot.a)${f}[name];`,`rel(pivot.a)${f}[name];`]).join(''),nr=POI_NEAR.map(f=>`nwr.n${f}[name];`).join('');
+  return `is_in(${lat},${lon})->.a;(${ar})->.ar;.ar out tags bb;nwr(around:150,${lat},${lon})->.n;(${nr});out tags center;`;
 }
 // several spots in one request; a "spot" marker before each spot's answer tells them apart
 function poiBatchQuery(keys){
   return '[out:json][timeout:60];'+keys.map(k=>{const [la,lo]=k.split(',');return `make spot k="${k}";out;`+poiQuery(la,lo)}).join('');
 }
+// Overpass answers a timeout or memory error with HTTP 200 and a "remark"; that answer is incomplete, not "nothing here"
+const poiFailed=json=>!!(json&&json.remark&&/error|timed out|timeout|memory/i.test(json.remark));
 function poiSplit(json){
   const by=new Map();let cur=null;
   for(const e of (json&&json.elements)||[]){if(e.type==='spot'){cur=e.tags.k;by.set(cur,[]);continue}if(cur)by.get(cur).push(e)}
@@ -946,17 +950,24 @@ function loadPlaces(){
 }
 function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces();return null}if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
 // a photo's place: its landmark when online lookups are on and the image wants landmarks, else the offline town
-function placeFor(ph,detail,online){
-  const base=placeOfPh(ph);if(!base||detail==='town'||!online)return base;
-  const p=POI.get(poiKey(ph));return p?{name:p.name,cc:base.cc,poi:true}:base;
+// what each photo contributes to an image's label: lm = its landmark, tw = its town (with lm on and tw off, the town
+// still stands in where there is no landmark); pg.ld is the older single choice
+function placeOpts(pg){return pg.pl?{...pg.pl}:pg.ld==='town'?{lm:false,tw:true}:{lm:true,tw:false}}
+function placeFor(ph,o,online){
+  const base=placeOfPh(ph);if(!base)return null;
+  const p=o.lm&&online?POI.get(poiKey(ph)):null;
+  if(p)return {name:o.tw&&base.name&&base.name!==p.name?p.name+', '+base.name:p.name,cc:base.cc,poi:true};
+  return o.tw||o.lm?base:null;
 }
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  const ph=[...filled(pg)].sort((a,b)=>a.date-b.date),det=pg.ld||'poi'; // places in the order the photos were taken
-  return labelText(ph.map(p=>placeFor(p,det,S.online||pg.on)),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
+  const ph=[...filled(pg)].sort((a,b)=>a.date-b.date),o=placeOpts(pg); // places in the order the photos were taken
+  return labelText(ph.map(p=>placeFor(p,o,S.online||pg.on)),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
 }
 /* ---------- landmarks online: OpenStreetMap via Overpass, queued in the background, one request a second at most.
    Only rounded coordinates (~100 m) leave the phone; answers are kept in IndexedDB so each spot is asked once. ---------- */
+// two public servers with the same OpenStreetMap data; a busy one hands over to the other
+const POI_SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];let poiSrv=0;
 const POI=new Map();let poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
@@ -970,20 +981,22 @@ function poiEnqueue(photos,force){
 async function poiRun(){
   if(poiBusy)return;poiBusy=true;let backoff=5000;
   while(poiQ.length){ // switching online off empties the queue
-    const keys=poiQ.slice(0,8);let wait=1100; // up to 8 spots per request
+    const keys=poiQ.slice(0,4);let wait=1100; // up to 4 spots per request
     try{
-      const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:poiBatchQuery(keys)})});
+      const ac=new AbortController(),to=setTimeout(()=>ac.abort(),45000);   // never hang on a stuck request
+      const r=await fetch(POI_SERVERS[poiSrv],{method:'POST',body:new URLSearchParams({data:poiBatchQuery(keys)}),signal:ac.signal}).finally(()=>clearTimeout(to));
       if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry these spots after a pause
-      if(r.ok){const by=poiSplit(await r.json());for(const k of keys){const [la,lo]=k.split(',').map(Number);POI.set(k,poiPick({elements:by.get(k)||[]},la,lo))}}
+      const json=r.ok?await r.json():null;if(poiFailed(json))throw new Error('incomplete'); // timed out on the server
+      if(r.ok){const by=poiSplit(json);for(const k of keys){const [la,lo]=k.split(',').map(Number);POI.set(k,poiPick({elements:by.get(k)||[]},la,lo))}}
       else if(!poiWarned){poiWarned=true;hint(`Landmark lookup failed (HTTP ${r.status}). Labels use towns for now.`)} // not remembered: asked again next time
       poiQ.splice(0,keys.length);poiDone+=keys.length;backoff=5000;poiSaveCache();
       clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();render()},400);
-    }catch{wait=backoff;backoff=Math.min(60000,backoff*2)}                 // busy or offline: 5 s, 10 s, 20 s … up to a minute
+    }catch{wait=backoff;backoff=Math.min(60000,backoff*2);poiSrv=(poiSrv+1)%POI_SERVERS.length} // busy/offline: other server, 5 s, 10 s … 1 min
     syncPoiBadge();await tick(wait);
   }
   poiBusy=false;if(!poiQ.length)poiDone=poiTotal=0;syncPoiBadge();
 }
-function syncPoiBadge(){const on=poiQ.length>0;$('poiBadge').hidden=!on;if(on)$('poiPct').textContent=Math.floor(100*poiDone/Math.max(1,poiTotal))+'%'}
+function syncPoiBadge(){const on=poiQ.length>0;$('poiBadge').hidden=!on;if(on){$('poiPct').textContent=`${poiDone}/${poiTotal}`;$('poiFill').style.width=(100*poiDone/Math.max(1,poiTotal))+'%'}}
 function allPhotos(){return [...S.pages.flatMap(filled),...(RV.list||[])]}
 function setOnline(on){
   S.online=on;localStorage_set('online',on?'1':'0');
@@ -1112,7 +1125,7 @@ let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveSta
 async function saveState(){
   try{
     await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lm:pg.lm,ld:pg.ld,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lm:pg.lm,ld:pg.ld,pl:pg.pl,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -1794,10 +1807,11 @@ const LABEL_MODES=[['auto','Auto'],['date','Date'],['both','Place + date'],['off
 LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.m=v;b.textContent=name;
   b.onclick=()=>{const pg=P();if(!pg)return;pg.lm=v;delete pg.label;touched(pg);placesWarned=false;placesFailAt=0;loadPlaces();refresh()};$('labelMode').appendChild(b)});
 {const b=document.createElement('button');b.className='chip';b.dataset.m='custom';b.innerHTML='✎';b.setAttribute('aria-label','Type your own label');b.onclick=openLabelEdit;$('labelMode').appendChild(b)}
-// Place row: the pin shows this image's lookup state (off: tap to look up / waiting / ready); the switch picks
-// landmark or town names. Tapping a waiting pin retries spots a rejected lookup left behind.
+// Place row: the pin shows this image's lookup state (dark red: off, tap to look up / waiting; green: ready); the
+// Landmark and Town switches pick what each photo contributes, and both on gives "Staroměstský orloj, Praha".
+// Tapping a waiting pin retries spots a rejected lookup left behind.
 $('lblFind').onclick=()=>{const pg=P();if(!pg)return;pg.on=true;touched(pg);filled(pg).forEach(p=>{if(p.lat!=null&&!poiQ.includes(poiKey(p)))poiQueued.delete(poiKey(p))});poiEnqueue(filled(pg),true);refresh()};
-$('ldSw').onchange=e=>{const pg=P();if(!pg)return;pg.ld=e.target.checked?'poi':'town';touched(pg);refresh()};
+['ldLm','ldTw'].forEach(id=>$(id).onchange=e=>{const pg=P();if(!pg)return;const o=placeOpts(pg);if(id==='ldLm')o.lm=e.target.checked;else o.tw=e.target.checked;pg.pl=o;delete pg.ld;touched(pg);refresh()});
 // per image: '' (no lookups or no GPS) / 'wait' / 'ready'
 function geoState(pg){
   const ks=filled(pg).filter(p=>p.lat!=null).map(poiKey);if(!ks.length||!(S.online||pg.on))return '';
@@ -1806,10 +1820,10 @@ function geoState(pg){
 function syncLabelMode(){
   const pg=P(),custom=!!pg&&typeof pg.label==='string';$('labelMode').hidden=!pg;
   const geo=!!pg&&filled(pg).some(p=>p.lat!=null),st=pg?geoState(pg):'',off=!st; // off: lookups were off for this image
-  $('labelDetail').hidden=!(geo&&!custom&&['auto','both'].includes(pg.lm||'auto'));
+  $('labelDetail').hidden=!(geo&&!custom&&['auto','both'].includes(pg.lm||'auto')); // the Town switch works offline too
   const f=$('lblFind');f.className='pinst'+(st?' '+st:'');$('lblFindText').hidden=!off;
   f.setAttribute('aria-label',off?'Find landmarks for this image online':st==='ready'?'Landmarks found':'Looking up landmarks, tap to retry');
-  $('ldSwWrap').hidden=off;$('ldSw').checked=((pg&&pg.ld)||'poi')==='poi';
+  const o=pg?placeOpts(pg):{lm:true,tw:false};$('ldLmWrap').hidden=off;$('ldLm').checked=o.lm;$('ldTw').checked=o.tw;
   // the label as text: on a phone held upright the caption on the preview is too small to read
   const t=pg?labelFor(pg):'',el=$('labelText');el.hidden=!pg;el.textContent=t||'No label';el.classList.toggle('none',!t);
   $('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',custom?b.dataset.m==='custom':b.dataset.m===((pg&&pg.lm)||'auto')));
@@ -1913,7 +1927,7 @@ function syncExport(){
 async function exportPages(list){
   const dl=await dlP,items=[];READY=null;syncExport();
   const need=new Set(list.flatMap(pg=>filled(pg).filter(p=>p.lat!=null).map(poiKey))),t0=Date.now();
-  while(poiQ.some(k=>need.has(k))&&Date.now()-t0<60000){hint(`Looking up places… ${Math.floor(100*poiDone/Math.max(1,poiTotal))}%`);await tick(500)}
+  while(poiQ.some(k=>need.has(k))&&Date.now()-t0<60000){hint(`Looking up places… ${poiDone}/${poiTotal}`);await tick(500)}
   await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);

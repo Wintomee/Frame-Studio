@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick,poiBatchQuery,poiSplit};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick,poiBatchQuery,poiSplit,poiFailed};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -140,7 +140,9 @@ test('landmarks: picks what you stand in, then a sight nearby, then the national
   assert.deepEqual(LB.poiPick({ elements: [area('Šumava', { boundary: 'national_park' }, box(49, 13.5, .4)), area('CHKO X', { boundary: 'protected_area', protect_class: '5' }, box(50, 14, .01)),
     pt('Černé jezero', { natural: 'waterfall' }, 49.1805, 13.1810)] }, 49.1800, 13.1800), { name: 'Černé jezero' });
   assert.equal(LB.poiPick({ elements: [] }, 50, 14), null);
-  assert.match(LB.poiQuery(50.1, 14.4), /is_in\(50\.1,14\.4\).*around:150,50\.1,14\.4/);
+  assert.match(LB.poiQuery(50.1, 14.4), /is_in\(50\.1,14\.4\).*nwr\(around:150,50\.1,14\.4\)->\.n;\(nwr\.n\[/); // spatial first
+  assert.equal(LB.poiFailed({ remark: 'runtime error: Query timed out in "query" at line 1 after 61 seconds.', elements: [] }), true);
+  assert.equal(LB.poiFailed({ elements: [] }), false);
   assert.doesNotMatch(LB.poiQuery(50.1, 14.4), /\[~"/);                    // no regex over key names (slow)
   const q = LB.poiBatchQuery(['50.088,14.421', '48.858,2.294']);
   assert.match(q, /^\[out:json\].*make spot k="50\.088,14\.421";out;is_in\(50\.088,14\.421\).*make spot k="48\.858,2\.294";out;is_in\(48\.858,2\.294\)/);
