@@ -629,7 +629,7 @@ function shortName(n){
   const m=n.slice(10).match(/\s(?:a|and|y|et|und|e|i|–|-|na|pod|nad|u|v|ve|při|za|de|del|della|di|du|of|on|in|at)\s|,|;|:/i);
   return m?n.slice(0,10+m.index).trim():n;
 }
-function composeLabel(photos,dates,f,country){
+function composeLabel(photos,dates,f,country,maxLm=2){
   // with the town on, landmarks gather under their town ("Staroměstský orloj · Karlův most, Praha"), so a town is never
   // repeated; with it off, each landmark stands alone
   const items=[],byTown=new Map(),seen=new Set();let lmCount=0; // at most two landmarks per image
@@ -637,9 +637,9 @@ function composeLabel(photos,dates,f,country){
     if(!p)continue;
     if(f.t&&p.town){
       const k=p.town+'|'+p.cc;let it=byTown.get(k);if(!it){it={town:p.town,cc:p.cc,lms:[]};byTown.set(k,it);items.push(it)}
-      const lm=shortName(p.poi);if(f.l&&lm&&!it.lms.includes(lm)&&lmCount<2){it.lms.push(lm);lmCount++}
+      const lm=shortName(p.poi);if(f.l&&lm&&!it.lms.includes(lm)&&lmCount<maxLm){it.lms.push(lm);lmCount++}
     }else{
-      let n=f.l&&p.poi&&lmCount<2?shortName(p.poi):'';if(!n&&!f.c)continue;
+      let n=f.l&&p.poi&&lmCount<maxLm?shortName(p.poi):'';if(!n&&!f.c)continue;
       const k=n+'|'+p.cc;if(seen.has(k))continue;seen.add(k);if(n)lmCount++;items.push({n,cc:p.cc});
     }
   }
@@ -982,18 +982,31 @@ function loadPlaces(){
 function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces();return null}if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
 // a photo's place: its landmark when online lookups are on and the image wants landmarks, else the offline town
 // each photo's town, country and landmark (when lookups are on for this image), in the order the photos were taken
-function labelPhotos(pg){
+function labelPhotosAll(pg){
   const on=S.online||!!pg.on;
   return [...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>{const b=placeOfPh(p);if(!b)return null;const poi=on?POI.get(poiKey(p)):null;
     // the online answer knows the real country: if it disagrees with the offline nearest town, that town is across a border
     // (Ross Lake, USA came out as Canada); in the wild with no town around, the state or region stands in for it
-    if(poi&&poi.cc&&(poi.cc!==b.cc||!b.name))return {town:poi.town||poi.state,cc:poi.cc,poi:poi.name};
-    return {town:b.name,cc:b.cc,poi:poi?poi.name:null}});
+    const pois=poi?[poi.name,poi.near].filter(Boolean):[]; // Nominatim's nearest, then what "Search nearby" found
+    if(poi&&poi.cc&&(poi.cc!==b.cc||!b.name))return {town:poi.town||poi.state,cc:poi.cc,pois};
+    return {town:b.name,cc:b.cc,pois}});
+}
+// Landmarks are switched one by one (user's request: lookups are not always right). pg.lmSel = {short name: on/off};
+// by default the first two are on (none if the old all-landmarks switch was turned off).
+function lmList(pg){return [...new Set(labelPhotosAll(pg).flatMap(p=>p?p.pois.map(shortName):[]))]}
+function lmOn(pg,n,i){const o=(pg.lmSel||{})[n];return o!=null?o:!(pg.lf&&pg.lf.l===false)&&i<2}
+// pin down what is on now, so landmarks added later (by "Search nearby") don't shuffle the defaults
+function lmFreeze(pg){const sel={...(pg.lmSel||{})};lmList(pg).forEach((n,i)=>{sel[n]=lmOn(pg,n,i)});pg.lmSel=sel}
+function labelPhotos(pg){
+  const ls=lmList(pg),ok=new Set(ls.filter((n,i)=>lmOn(pg,n,i)));
+  // one entry per switched-on landmark (a photo can have two), or one without a landmark
+  return labelPhotosAll(pg).flatMap(p=>{if(!p)return [null];const on=p.pois.filter(n=>ok.has(shortName(n)));
+    return on.length?on.map(poi=>({town:p.town,cc:p.cc,poi})):[{town:p.town,cc:p.cc,poi:null}]});
 }
 function labelFlags(pg){return {...labelDefaults(labelPhotos(pg)),...(pg.lf||{})}}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  return composeLabel(labelPhotos(pg),[...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>p.date),labelFlags(pg),countryCs);
+  return composeLabel(labelPhotos(pg),[...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>p.date),{...labelFlags(pg),l:true},countryCs,Infinity);
 }
 // older sets stored a mode (pg.lm: auto/date/both/off) and a landmark/town choice (pg.pl, pg.ld); turn them into parts
 function migrateLabel(pg){
@@ -1037,7 +1050,10 @@ async function poiRun(){
       if(k.startsWith('near:')){ // "Search nearby" tapped on an image: one Photon request for this spot
         const sk=k.slice(5),[la,lo]=sk.split(',').map(Number),near=await poiNear(la,lo),i=poiQ.indexOf(k);if(i>=0)poiQ.splice(i,1);
         if(near.ovFail){poiNearErr.add(sk);if(!poiNearWarned){poiNearWarned=true;hint(`Nearby search failed (${near.ovFail}). Tap to try again.`)}}
-        else{poiNearErr.delete(sk);POI.set(sk,{...POI.get(sk),name:near.name,deep:true})}
+        else{poiNearErr.delete(sk);const v=POI.get(sk)||{},nn=near.name&&near.name!==v.name?near.name:null;
+          // asked for on these images: what it found goes on, everything else stays as it was
+          const pgs=S.pages.filter(p=>filled(p).some(ph=>ph.lat!=null&&poiKey(ph)===sk));pgs.forEach(lmFreeze);
+          POI.set(sk,{...v,near:nn,deep:true});if(nn)pgs.forEach(p=>{p.lmSel[shortName(nn)]=true});scheduleSave()}
         poiSaveCache(!poiQ.some(x=>x.startsWith('near:')));clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();syncPoiBadge();render()},100);
         syncPoiBadge();continue;
       }
@@ -1193,11 +1209,14 @@ const DB=(()=>{
   return {put:(s,k,v)=>tx(s,'readwrite',o=>o.put(v,k)),get:(s,k)=>tx(s,'readonly',o=>o.get(k)),del:(s,k)=>tx(s,'readwrite',o=>o.delete(k)),keys:s=>tx(s,'readonly',o=>o.getAllKeys())};
 })();
 async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'image/jpeg',.85));await DB.put('assets',ph.id,{file:ph.file,prevBlob:pb,w:ph.ow??ph.w,h:ph.oh??ph.h,date:ph.date,lat:ph.lat,lon:ph.lon})}catch{}}
-let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveState,700)}
+let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(()=>{saveT=0;saveState()},700)}
+// leaving or hiding the app saves a pending change right away (iOS may not come back to finish the delay)
+const flushSave=()=>{if(saveT){clearTimeout(saveT);saveT=0;saveState()}};
+addEventListener('pagehide',flushSave);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave()});
 async function saveState(){
   try{
     await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -1883,7 +1902,7 @@ function syncWall(){
 $('labelParts').querySelectorAll('.part[data-p]').forEach(b=>b.onclick=()=>{
   const pg=P();if(!pg)return;const k=b.dataset.p;
   if(k==='l'&&!(S.online||pg.on)){pg.on=true;touched(pg);poiEnqueue(filled(pg),true);refresh();return}
-  if(k==='l'&&geoState(pg)==='ready'&&!labelPreview(labelPhotos(pg),[],countryCs).l.length&&nearCand(pg).length){ // "Search nearby"
+  if(k==='l'&&geoState(pg)==='ready'&&nearCand(pg).length){ // "Search nearby"
     const ks=nearCand(pg).map(x=>'near:'+x);poiQ.unshift(...ks.filter(x=>!poiQ.includes(x)));poiNearWarned=false;syncLabelMode();syncPoiBadge();if(poiBusy&&poiNudge)poiNudge();poiRun();return}
   if(k==='l'&&geoState(pg)==='wait'){filled(pg).forEach(p=>{if(p.lat!=null&&!poiQ.includes(poiKey(p)))poiQueued.delete(poiKey(p))});poiEnqueue(filled(pg),true)} // retry stuck spots
   if(typeof pg.label==='string'){delete pg.label;touched(pg);refresh();return} // first tap leaves typed text
@@ -1896,15 +1915,24 @@ function geoState(pg){
   return ks.every(k=>POI.has(k)&&!poiQ.includes('near:'+k))?'ready':'wait';
 }
 // spots of this image that have no landmark yet and haven't had the (slower) nearby search
-const nearCand=pg=>[...new Set(filled(pg).filter(p=>p.lat!=null).map(poiKey))].filter(k=>{const v=POI.get(k);return v&&!v.name&&!v.deep});
+const nearCand=pg=>[...new Set(filled(pg).filter(p=>p.lat!=null).map(poiKey))].filter(k=>{const v=POI.get(k);return v&&!v.deep});
 function syncLabelMode(){
   const pg=P(),box=$('labelParts');box.hidden=!pg;$('labelText').hidden=!pg;if(!pg)return;
   const custom=typeof pg.label==='string',f=labelFlags(pg),lp=labelPhotos(pg),pv=labelPreview(lp,[...filled(pg)].map(p=>p.date),countryCs);
   const gs=geoState(pg),looked=S.online||!!pg.on;
   const set=(k,txt,dis)=>{const b=box.querySelector(`[data-p="${k}"]`);b.querySelector('span').textContent=txt;b.title=txt;b.disabled=!!dis;b.setAttribute('aria-pressed',!custom&&!dis&&!!f[k])};
   const lb=box.querySelector('[data-p="l"]');lb.className='part '+(gs==='none'?'g-none':!looked?'g-no':gs==='ready'?'g-ok':'g-wait');
-  set('l',gs==='none'?'No location':!looked?'Find landmarks':pv.l.length?pv.l.join(pv.l.length===2?' & ':' · '):gs==='ready'?(nearCand(pg).length?(nearCand(pg).some(k=>poiNearErr.has(k))?'Search failed · retry':'Search nearby'):'No landmark nearby'):'Looking up…',gs==='none'||(gs==='ready'&&!pv.l.length&&!nearCand(pg).length));
-  if((!looked&&gs!=='none')||(gs==='ready'&&!pv.l.length))lb.setAttribute('aria-pressed','false'); // an action (find/search), not a part that is on
+  // one chip per landmark, each switched on its own; the pin chip after them is the lookup state / "Search nearby"
+  const ls=looked?lmList(pg):[],nc=gs==='ready'?nearCand(pg):[];
+  box.querySelectorAll('.part.lm').forEach(e=>e.remove());
+  ls.forEach((n,i)=>{const b=document.createElement('button');b.className='part lm g-ok';b.innerHTML=lb.querySelector('svg').outerHTML+'<span></span>';
+    b.querySelector('span').textContent=n;b.title=n;b.setAttribute('aria-pressed',!custom&&lmOn(pg,n,i));
+    b.onclick=()=>{if(typeof pg.label==='string'){delete pg.label;touched(pg);refresh();return}
+      lmFreeze(pg);pg.lmSel[n]=!lmOn(pg,n,i);touched(pg);refresh()};
+    box.insertBefore(b,lb)});
+  set('l',gs==='none'?'No location':!looked?'Find landmarks':gs!=='ready'?'Looking up…':nc.length?(nc.some(k=>poiNearErr.has(k))?'Search failed · retry':ls.length?'More nearby':'Search nearby'):'No landmark nearby',gs==='none'||(gs==='ready'&&!nc.length));
+  lb.hidden=gs==='ready'&&!nc.length&&ls.length>0; // nothing more to do: the landmark chips say it all
+  lb.setAttribute('aria-pressed','false'); // an action (find/search) or a state, never a part that is on
   set('t',pv.t.join(' · ')||'Town',!pv.t.length);set('c',pv.c.join(' · ')||'Country',!pv.c.length);set('d',pv.d||'Date',!pv.d);
   $('lblEditBtn').setAttribute('aria-pressed',custom);
   // the label as text: on a phone held upright the caption on the preview is too small to read

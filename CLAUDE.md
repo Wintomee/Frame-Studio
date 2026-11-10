@@ -131,7 +131,16 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   Karlův most, Praha"); a run of one country shares it ("Paříž & Lyon, Francie"); another country in between repeats
   it. One join rule everywhere: two items "&", three or more " · ". Landmark names are shortened (`shortName`: OSM
   `short_name(:cs)` first, then over ~28 characters cut at the first add-on: " a ", dash, comma, bracket, preposition;
-  "Pomník obětem komunismu a přilehlé kaskádové schodiště…" → "Pomník obětem komunismu"), at most two per image.
+  "Pomník obětem komunismu a přilehlé kaskádové schodiště…" → "Pomník obětem komunismu").
+  **Landmarks are switched one by one** (user's request: lookups aren't always right): one chip per landmark
+  (`lmList`, short names in photo order; a spot can have two: Nominatim's `name` and the "Search nearby" result
+  `near`), state in `pg.lmSel` {name: on/off}; by default the first two are on (none if an old `lf.l` was off).
+  `lmFreeze` pins the current states before a toggle or a new nearby result so the defaults don't shuffle; what a
+  nearby search finds is switched on. `labelPhotos` emits one entry per switched-on landmark; `labelFor` calls
+  `composeLabel` with no landmark cap (the cap of 2 stays the pure function's default). The pin chip after the
+  landmarks is now only the state / action: "Looking up…", "Search nearby" (no landmark yet) or "More nearby" (every
+  spot not yet searched, `nearCand`), hidden when there is nothing left to do. Pending saves are flushed on
+  pagehide / hide (`flushSave`).
   **UI**: one wrapping row on the Layout tab (`#labelParts`): a button per part that shows its value even while off
   (on = solid accent, off = dashed), so a long or wrong landmark is visible before switching it on, plus ✎ for typed
   text (`pg.label`; tapping a part leaves typed text). Under the row the full label is shown as text (`#labelText`,
