@@ -132,6 +132,21 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   (`syncLabelMode`), with ✎ for typed text. Under the row the current label is shown as read-only text (`#labelText`,
   "No label" when empty), because the caption on the preview is too small to read on a phone held upright. Picking a mode clears typed text and locks the image. Sets saved while the
   mode was set-wide (`st.labelMode`) carry it into each image on restore.
+- **Landmarks online** (user's request, on by default, `S.online` in localStorage): a "Detailed places (online)" toggle
+  above the empty-state import square (`#onlTop`, hidden once a set exists) and on the review screen (`#onlRvCb`).
+  `poiQuery`/`poiPick` (pure, LABELS block) ask **Overpass** (`overpass-api.de`, not Nominatim: Overpass can ask what a
+  point lies *in*) for named areas containing the photo (park, garden, beach, zoo, castle grounds, attraction, nature
+  reserve, national park; protected areas only with protect_class 2) and named sights within 150 m (attraction, museum,
+  viewpoint, castle, ruins, monument, fort, peak, waterfall, beach, cave, lighthouse). Pick: smallest containing area
+  under ~3 km across → nearest sight → national park → none. Names prefer `name:cs`. The queue (`poiQ`, `poiRun`) runs
+  in the background from the moment photos are picked, one request per ≥1.1 s, 30 s back-off when busy/offline; only
+  coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
+  is not cached and shows one message). A small pin + % pill on the preview (`#poiBadge`) shows progress. Export waits
+  up to a minute for pending lookups of the images being exported. `placeFor` uses the landmark instead of the town
+  for photos that have one; per image `pg.ld` = landmarks (default) / towns, in a "Place" row on the Layout tab shown
+  when the label can show places. **Auto at home now shows landmarks** ("Staroměstský orloj · září 2025") and still
+  only the date when there are none. Not verified against the live service from the dev container (blocked); tested
+  with stand-in answers in Overpass's format.
 - **Drawing**: `drawLabel` in `drawBase`, so previews, thumbnails and exports all get it. Size .3 × padding (.24 for Art
   deco, whose lines run through the border); hidden below ~16 px. Never inside a photo rect.
 - **Editing**: ✎ or tapping the bottom-right border on the Layout tab (`inLabel`) → dialog: Save (custom text in
@@ -170,7 +185,7 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
 
 ## UI decisions already made (don't undo without asking)
 - **Import goes through a review step first** (user's request): a full-screen grid of the new batch (`openReview`,
-  `RV.list`) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Arrange N photos" then auto-composes
+  `RV.list`, scrolling in `.rvscroll`: with the grid itself as the flex scroller, iOS squashed the rows) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Arrange N photos" then auto-composes
   (`arrangeNew`) and opens the Auto-arrange sheet (presets + collapsible fine-tune + try another), so rules can be
   changed straight away. Cancel drops only the new batch. `S.importing` stays on during the review so its assets aren't
   purged. Rules are not a tab.

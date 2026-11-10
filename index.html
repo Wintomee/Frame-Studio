@@ -67,7 +67,8 @@ body.fs header.top{z-index:30}
 .rvhead{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
 .rvhead h3{margin:0;font-size:17px}
 .rvhead .btn{display:flex;align-items:center;gap:6px;padding:8px 12px}
-.rvgrid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;padding:4px 14px 14px;align-content:start}
+.rvscroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch} /* scrolls; the grid itself never shrinks rows */
+.rvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;padding:4px 14px 14px;align-content:start}
 .rvtile{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--surface);border:0;padding:0;cursor:pointer;outline:3px solid transparent;outline-offset:-3px}
 .rvtile canvas{width:100%;height:100%;object-fit:cover;display:block}
 .rvtile[aria-pressed="true"]{outline-color:#f5c542}
@@ -151,6 +152,10 @@ select{font:inherit;font-size:14px;color:var(--text);background:var(--surface);b
 .opts .row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 .opts .row .chip{flex:none;white-space:nowrap}
 #labelMode{gap:6px}.lbltext{color:var(--text);font-size:14px;margin-top:-4px;overflow-wrap:anywhere}.lbltext.none{color:var(--muted)}#labelMode .label{min-width:0;margin-right:4px}#labelMode .chip{padding:5px 10px}
+#labelDetail{gap:6px}#labelDetail .label{min-width:0;margin-right:4px}#labelDetail .chip{padding:5px 10px}
+.onl{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text);padding:2px 0 8px;cursor:pointer}.onl .osm{margin-left:auto;font-size:11px;color:var(--muted)}.rvonl{padding:0 14px 8px}
+.poibadge{position:absolute;top:8px;right:8px;z-index:2;display:flex;align-items:center;gap:3px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 7px 2px 5px;pointer-events:none;font-variant-numeric:tabular-nums}
+.poibadge svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}.stage.full .poibadge{display:none}
 .sw.custom{position:relative;overflow:hidden;background:conic-gradient(#e74c3c,#f1c40f,#2ecc71,#1abc9c,#3498db,#9b59b6,#e74c3c)}
 .sw.custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);opacity:0;cursor:pointer;border:0;padding:0}
 .sw.custom i{position:absolute;inset:7px;border-radius:50%;border:2px solid #fff;pointer-events:none}
@@ -194,8 +199,10 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
 </head>
 <body>
 <header class="top"><div class="wrap">
+  <label class="onl" id="onlTop"><input type="checkbox" id="onlTopCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label>
   <div class="stage" id="stage">
     <div class="tv"><canvas id="cv" aria-label="Layout preview"></canvas>
+      <div class="poibadge" id="poiBadge" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span id="poiPct"></span></div>
       <button class="fsnav prev" id="fsPrev" aria-label="Previous image"></button><button class="fsnav next" id="fsNext" aria-label="Next image"></button><div class="fscount" id="fsCount"></div>
       <button class="empty" id="emptyBtn"><span><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="m3 16 4-4 4 4 2-2 4 4"/><path d="M20 2v6M17 5h6"/></svg>Import photos</span></button>
     </div>
@@ -210,6 +217,7 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     <div class="sugs" id="sugs"></div>
     <div class="groups" id="groups"></div>
     <div class="opts"><div class="row" id="labelMode" role="group" aria-label="Label for this image"><span class="label">Label</span></div>
+      <div class="row" id="labelDetail" role="group" aria-label="Place detail" hidden><span class="label">Place</span></div>
       <p class="note lbltext" id="labelText" aria-live="polite"></p></div>
   </section>
 
@@ -264,7 +272,8 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
 </div>
 <div class="review" id="review" hidden role="dialog" aria-labelledby="reviewH">
   <div class="rvhead"><h3 id="reviewH"></h3><span class="spacer"></span><button class="btn" id="rvAdd"></button></div>
-  <div class="rvgrid" id="rvGrid"></div>
+  <label class="onl rvonl"><input type="checkbox" id="onlRvCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label>
+  <div class="rvscroll"><div class="rvgrid" id="rvGrid"></div></div>
   <div class="rvbar"><button class="btn" id="rvCancel">Cancel</button><button class="btn primary" id="rvGo"></button></div>
 </div>
 <div class="cropper" id="cropper" hidden role="dialog" aria-label="Crop photo">
@@ -606,11 +615,37 @@ function placeText(places,country){
   }).filter(Boolean).join(' · ');
 }
 // mode: off | auto (place + date abroad, date only at home) | date | both
+// auto at home shows only landmarks (place.poi), since "Praha" on every Prague image says nothing
 function labelText(places,dates,mode,country){
   if(mode==='off')return '';
-  const d=czDate(dates),pl=placeText(places,country),abroad=places.some(p=>p&&p.cc!=='CZ');
-  const wantPlace=mode==='both'||(mode==='auto'&&abroad);
-  return wantPlace&&pl?(d?pl+' · '+d:pl):d;
+  const d=czDate(dates),abroad=places.some(p=>p&&p.cc!=='CZ');
+  const shown=mode==='both'||(mode==='auto'&&abroad)?places:mode==='auto'?places.filter(p=>p&&p.poi):[];
+  const pl=placeText(shown,country);
+  return pl?(d?pl+' · '+d:pl):d;
+}
+/* Landmarks from OpenStreetMap (Overpass API): what the photo stands in (park, beach, castle grounds, national park) and
+   what is within 150 m (sight, museum, viewpoint, castle, waterfall…). OSM tags say what each thing is, so only real
+   landmarks come back. Pure: builds the query and picks from the answer. */
+const POI_AREA=['^(leisure|natural|boundary|tourism|historic)$','^(park|nature_reserve|national_park|protected_area|beach|garden|zoo|theme_park|castle|attraction)$'];
+const POI_NEAR=['^(tourism|historic|natural|man_made)$','^(attraction|museum|viewpoint|zoo|theme_park|castle|ruins|monument|fort|archaeological_site|peak|waterfall|beach|cave_entrance|lighthouse)$'];
+function poiQuery(lat,lon){
+  const a=`[name][~"${POI_AREA[0]}"~"${POI_AREA[1]}"]`,n=`[name][~"${POI_NEAR[0]}"~"${POI_NEAR[1]}"]`;
+  return `[out:json][timeout:20];is_in(${lat},${lon})->.a;(way(pivot.a)${a};rel(pivot.a)${a};)->.ar;.ar out tags bb;nwr(around:150,${lat},${lon})${n};out tags center;`;
+}
+function poiPick(json,lat,lon){
+  const nm=t=>t['name:cs']||t.name,areas=[],near=[];
+  for(const e of (json&&json.elements)||[]){
+    const t=e.tags||{};if(!nm(t))continue;
+    if(e.bounds){
+      if(t.boundary==='protected_area'&&String(t.protect_class)!=='2')continue; // of protected areas, only national parks
+      const b=e.bounds;areas.push({name:nm(t),km:kmBetween({lat:b.minlat,lon:b.minlon},{lat:b.maxlat,lon:b.maxlon})});
+    }else{const c=e.center||e;if(c.lat!=null)near.push({name:nm(t),km:kmBetween({lat,lon},{lat:c.lat,lon:c.lon})})}
+  }
+  areas.sort((a,b)=>a.km-b.km);near.sort((a,b)=>a.km-b.km);
+  if(areas[0]&&areas[0].km<3)return {name:areas[0].name}; // a park, beach or castle you are standing in
+  if(near[0])return {name:near[0].name};                   // a sight within 150 m
+  if(areas[0])return {name:areas[0].name};                 // the national park around you
+  return null;
 }
 /*LABELS-END*/
 
@@ -664,7 +699,7 @@ const PRESETS={
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,online:true,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
@@ -881,11 +916,52 @@ function loadPlaces(){
   })().catch(e=>{placesP=null;placesFailAt=Date.now();if(!placesWarned){placesWarned=true;hint(`Place names couldn’t load (${e.message||e}). Labels show dates only for now.`)}}));
 }
 function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces();return null}if(ph._pl===undefined)ph._pl=placeAt(PLACES,ph.lat,ph.lon);return ph._pl}
+// a photo's place: its landmark when online lookups are on and the image wants landmarks, else the offline town
+function placeFor(ph,detail){
+  const base=placeOfPh(ph);if(!base||detail==='town'||!S.online)return base;
+  const p=POI.get(poiKey(ph));return p?{name:p.name,cc:base.cc,poi:true}:base;
+}
 function labelFor(pg){
   if(!pg)return '';if(typeof pg.label==='string')return pg.label; // set by hand ('' = hidden)
-  const ph=[...filled(pg)].sort((a,b)=>a.date-b.date); // places in the order the photos were taken
-  return labelText(ph.map(placeOfPh),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
+  const ph=[...filled(pg)].sort((a,b)=>a.date-b.date),det=pg.ld||'poi'; // places in the order the photos were taken
+  return labelText(ph.map(p=>placeFor(p,det)),ph.map(p=>p.date),pg.lm||'auto',countryCs); // mode per image, auto by default
 }
+/* ---------- landmarks online: OpenStreetMap via Overpass, queued in the background, one request a second at most.
+   Only rounded coordinates (~100 m) leave the phone; answers are kept in IndexedDB so each spot is asked once. ---------- */
+const POI=new Map();let poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
+const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
+const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
+function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)POI.set(k,o[k])}).catch(()=>{})}
+function poiSaveCache(){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),1500)}
+function poiEnqueue(photos){
+  if(!S.online)return;
+  for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
+  syncPoiBadge();poiRun();
+}
+async function poiRun(){
+  if(poiBusy)return;poiBusy=true;
+  while(poiQ.length&&S.online){
+    const k=poiQ[0],[la,lo]=k.split(',').map(Number);let wait=1100;
+    try{
+      const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:poiQuery(la,lo)})});
+      if(r.status===429||r.status>=500)throw new Error('busy');            // server busy: retry the same spot later
+      if(r.ok)POI.set(k,poiPick(await r.json(),la,lo)); // a rejected query isn't remembered, so it is asked again next time
+      else if(!poiWarned){poiWarned=true;hint(`Landmark lookup failed (HTTP ${r.status}). Labels use towns for now.`)}
+      poiQ.shift();poiDone++;poiSaveCache();
+      clearTimeout(poiRefT);poiRefT=setTimeout(()=>{renderStrip();syncLabelMode();render()},400);
+    }catch{wait=30000}                                                     // offline or busy: try again in 30 s
+    syncPoiBadge();await tick(wait);
+  }
+  poiBusy=false;if(!poiQ.length)poiDone=poiTotal=0;syncPoiBadge();
+}
+function syncPoiBadge(){const on=S.online&&poiQ.length>0;$('poiBadge').hidden=!on;if(on)$('poiPct').textContent=Math.floor(100*poiDone/Math.max(1,poiTotal))+'%'}
+function allPhotos(){return [...S.pages.flatMap(filled),...(RV.list||[])]}
+function setOnline(on){
+  S.online=on;localStorage_set('online',on?'1':'0');
+  if(on)poiEnqueue(allPhotos());else{poiQ.forEach(k=>poiQueued.delete(k));poiQ=[];poiDone=poiTotal=0;syncPoiBadge()}
+  refresh();
+}
+function syncOnline(){$('onlTopCb').checked=$('onlRvCb').checked=S.online;$('onlTop').hidden=!!P()}
 const LFONT=px=>`600 ${px}px Manrope,system-ui,-apple-system,sans-serif`;
 function labelBox(pad,frame){
   const ins=insOf(frame),g=geoOf(pad,ins),size=g.p*(frame==='deco'?.24:.3); // art deco lines run through the border
@@ -1007,7 +1083,7 @@ let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(saveSta
 async function saveState(){
   try{
     await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lm:pg.lm,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lm:pg.lm,ld:pg.ld,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
     if(S.importing||undoFn)return;
     const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
@@ -1100,6 +1176,7 @@ async function importFiles(files){
 /* ---------- review: the batch before arranging (add, remove, mark heroes) ---------- */
 const RV={list:null};
 function openReview(news){
+  poiEnqueue(news);
   RV.list=[...(RV.list||[]),...news].sort((a,b)=>a.date-b.date);$('review').hidden=false;
   $('rvAdd').innerHTML=svg('plus')+'Add';renderReview();
 }
@@ -1119,6 +1196,7 @@ function renderReview(){
   });
 }
 $('rvAdd').onclick=()=>openImport();
+['onlTopCb','onlRvCb'].forEach(id=>$(id).onchange=e=>setOnline(e.target.checked));
 $('rvCancel').onclick=()=>{RV.list=null;$('review').hidden=true;S.importing=false;scheduleSave();hint('Import cancelled.')};
 $('rvGo').onclick=()=>{const l=RV.list;RV.list=null;$('review').hidden=true;arrangeNew(l)};
 async function arrangeNew(news){
@@ -1686,8 +1764,12 @@ const LABEL_MODES=[['auto','Auto'],['date','Date'],['both','Place + date'],['off
 LABEL_MODES.forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.m=v;b.textContent=name;
   b.onclick=()=>{const pg=P();if(!pg)return;pg.lm=v;delete pg.label;touched(pg);placesWarned=false;placesFailAt=0;loadPlaces();refresh()};$('labelMode').appendChild(b)});
 {const b=document.createElement('button');b.className='chip';b.dataset.m='custom';b.innerHTML='✎';b.setAttribute('aria-label','Type your own label');b.onclick=openLabelEdit;$('labelMode').appendChild(b)}
+[['poi','Landmarks'],['town','Towns']].forEach(([v,name])=>{const b=document.createElement('button');b.className='chip';b.dataset.d=v;b.textContent=name;
+  b.onclick=()=>{const pg=P();if(!pg)return;pg.ld=v;touched(pg);refresh()};$('labelDetail').appendChild(b)});
 function syncLabelMode(){
   const pg=P(),custom=!!pg&&typeof pg.label==='string';$('labelMode').hidden=!pg;
+  $('labelDetail').hidden=!(pg&&S.online&&!custom&&['auto','both'].includes(pg.lm||'auto'));
+  $('labelDetail').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.d===((pg&&pg.ld)||'poi')));
   // the label as text: on a phone held upright the caption on the preview is too small to read
   const t=pg?labelFor(pg):'',el=$('labelText');el.hidden=!pg;el.textContent=t||'No label';el.classList.toggle('none',!t);
   $('labelMode').querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',custom?b.dataset.m==='custom':b.dataset.m===((pg&&pg.lm)||'auto')));
@@ -1790,6 +1872,8 @@ function syncExport(){
 }
 async function exportPages(list){
   const dl=await dlP,items=[];READY=null;syncExport();
+  const need=new Set(list.flatMap(pg=>filled(pg).filter(p=>p.lat!=null).map(poiKey))),t0=Date.now();
+  while(S.online&&poiQ.some(k=>need.has(k))&&Date.now()-t0<60000){hint(`Looking up places… ${Math.floor(100*poiDone/Math.max(1,poiTotal))}%`);await tick(500)}
   await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
@@ -1838,7 +1922,7 @@ $('exportFile').addEventListener('change',async e=>{
 /* ---------- refresh ---------- */
 function refresh(){
   S.active=clamp(S.active,0,Math.max(0,S.pages.length-1));
-  renderStrip();renderGroups();syncBar();syncFs();syncSw();syncRules();syncTabs();syncSheet();render();scheduleSave();
+  renderStrip();renderGroups();syncBar();syncFs();syncSw();syncRules();syncTabs();syncSheet();syncOnline();render();scheduleSave();
 }
 
 (async()=>{
@@ -1849,6 +1933,8 @@ function refresh(){
   const ok=await restore();
   localStorage_set('restoring','0');
   loadPlaces();
+  S.online=localStorage_get('online')!=='0'; // on unless switched off
+  poiLoadCache().then(()=>{poiEnqueue(S.pages.flatMap(filled));refresh()});
   document.fonts.load(LFONT(40)).then(render).catch(()=>{});
   refresh();
 })();

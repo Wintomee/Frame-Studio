@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,placeText,labelText,poiQuery,poiPick};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -125,6 +125,26 @@ test('label text: dates in Czech, place only abroad on auto, two places and coun
   assert.equal(LB.labelText([P('Praha', 'CZ')], [d(2025, 6)], 'off', cn), '');
   const many = [P('Praha', 'CZ'), P('Brno', 'CZ'), P('Brno', 'CZ'), P('Olomouc', 'CZ'), P('Zlín', 'CZ')];
   assert.equal(LB.labelText(many, [d(2025, 6)], 'both', cn), 'Praha · Brno · Olomouc · Zlín · červenec 2025');
+});
+
+test('landmarks: picks what you stand in, then a sight nearby, then the national park; auto at home shows only landmarks', () => {
+  const area = (name, tags, b) => ({ type: 'way', tags: { name, ...tags }, bounds: b });
+  const pt = (name, tags, lat, lon) => ({ type: 'node', tags: { name, ...tags }, lat, lon });
+  const box = (la, lo, d) => ({ minlat: la - d, minlon: lo - d, maxlat: la + d, maxlon: lo + d });
+  // Stromovka: standing in the park, a pavilion 120 m away -> the park
+  assert.deepEqual(LB.poiPick({ elements: [area('Královská obora', { leisure: 'park', 'name:cs': 'Stromovka' }, box(50.106, 14.422, .006)),
+    pt('Místodržitelský letohrádek', { historic: 'castle' }, 50.1065, 14.4235)] }, 50.106, 14.422), { name: 'Stromovka' });
+  // Teide: inside the national park, nothing small around -> the national park, Czech name
+  assert.deepEqual(LB.poiPick({ elements: [area('Parque Nacional del Teide', { boundary: 'national_park', 'name:cs': 'Národní park Teide' }, box(28.27, -16.64, .12))] }, 28.2724, -16.6425), { name: 'Národní park Teide' });
+  // a sight nearby beats the big national park; a landscape protected area (class 5) is ignored
+  assert.deepEqual(LB.poiPick({ elements: [area('Šumava', { boundary: 'national_park' }, box(49, 13.5, .4)), area('CHKO X', { boundary: 'protected_area', protect_class: '5' }, box(50, 14, .01)),
+    pt('Černé jezero', { natural: 'waterfall' }, 49.1805, 13.1810)] }, 49.1800, 13.1800), { name: 'Černé jezero' });
+  assert.equal(LB.poiPick({ elements: [] }, 50, 14), null);
+  assert.match(LB.poiQuery(50.1, 14.4), /is_in\(50\.1,14\.4\).*around:150,50\.1,14\.4/);
+  const d = new Date(2025, 8, 3).getTime(), P = (name, cc, poi) => ({ name, cc, poi });
+  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Stromovka', 'CZ', true)], [d], 'auto', cn), 'Stromovka · září 2025');
+  assert.equal(LB.labelText([P('Praha', 'CZ'), P('Praha', 'CZ')], [d], 'auto', cn), 'září 2025');
+  assert.equal(LB.labelText([P('Národní park Teide', 'ES', true)], [d], 'auto', cn), 'Národní park Teide, Španělsko · září 2025');
 });
 
 console.log(`\n${n} tests passed`);

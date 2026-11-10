@@ -46,3 +46,5 @@ In Art Mode set the matte to **None**, otherwise the TV adds its own border on t
 ## Credits
 
 Town names for location labels: [GeoNames](https://www.geonames.org/) (CC BY 4.0), via the `all-the-cities` package.
+Landmark names (optional "Detailed places (online)"): © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, via the Overpass API.
+With that switch on, the app sends each photo's coordinates, rounded to about 100 m, to overpass-api.de. Photos themselves never leave the phone.
