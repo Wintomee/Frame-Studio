@@ -84,7 +84,7 @@ test('bigger photos: mostly 2 per image', () => {
 
 // location labels: the LABELS block uses kmBetween from the solver
 const lsrc = html.split('/*LABELS-START*/')[1].split('/*LABELS-END*/')[0];
-const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim};')();
+const LB = new Function(src + lsrc + ';return {parsePlaces,placeAt,czDate,composeLabel,labelDefaults,labelPreview,shortName,poiUrl,poiNominatim,poiLandmark};')();
 const grid = LB.parsePlaces(readFileSync(new URL('../places.txt', import.meta.url), 'utf8'));
 const cn = cc => new Intl.DisplayNames(['cs'], { type: 'region' }).of(cc);
 
@@ -142,17 +142,24 @@ test('landmarks: Nominatim answer -> landmark only when it is one and you are in
   const ans = (category, type, name, lat, lon, d, extra = {}) => ({ category, type, name, lat: String(lat), lon: String(lon),
     boundingbox: [lat - d, lat + d, lon - d, lon + d].map(String), namedetails: { name }, ...extra });
   // standing in Stromovka (park ~1 km across) -> the park, Czech name first
-  assert.deepEqual(LB.poiNominatim(ans('leisure', 'park', 'Královská obora', 50.106, 14.422, .004, { namedetails: { name: 'Královská obora', 'name:cs': 'Stromovka' } }), 50.1055, 14.421), { name: 'Stromovka' });
+  assert.deepEqual(LB.poiLandmark(ans('leisure', 'park', 'Královská obora', 50.106, 14.422, .004, { namedetails: { name: 'Královská obora', 'name:cs': 'Stromovka' } }), 50.1055, 14.421), 'Stromovka');
   // a museum 90 m away -> yes; 600 m away -> no
-  assert.deepEqual(LB.poiNominatim(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.079, 14.432), { name: 'Národní muzeum' });
-  assert.equal(LB.poiNominatim(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.084, 14.432), null);
+  assert.deepEqual(LB.poiLandmark(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.079, 14.432), 'Národní muzeum');
+  assert.equal(LB.poiLandmark(ans('tourism', 'museum', 'Národní muzeum', 50.0795, 14.4310, .0005), 50.084, 14.432), null);
   // national park: any size; a landscape protected area (class 5) is ignored
-  assert.deepEqual(LB.poiNominatim(ans('boundary', 'national_park', 'Národní park Teide', 28.27, -16.64, .12), 28.2724, -16.6425), { name: 'Národní park Teide' });
-  assert.equal(LB.poiNominatim(ans('boundary', 'protected_area', 'CHKO X', 50, 14, .01, { extratags: { protect_class: '5' } }), 50, 14), null);
+  assert.deepEqual(LB.poiLandmark(ans('boundary', 'national_park', 'Národní park Teide', 28.27, -16.64, .12), 28.2724, -16.6425), 'Národní park Teide');
+  assert.equal(LB.poiLandmark(ans('boundary', 'protected_area', 'CHKO X', 50, 14, .01, { extratags: { protect_class: '5' } }), 50, 14), null);
   // a huge park around you is not a landmark; a café is never one; errors -> nothing
-  assert.equal(LB.poiNominatim(ans('leisure', 'park', 'Big', 50, 14, .05), 50, 14), null);
-  assert.equal(LB.poiNominatim(ans('amenity', 'cafe', 'Café Slavia', 50.0815, 14.4135, .0002), 50.0815, 14.4135), null);
-  assert.equal(LB.poiNominatim({ error: 'Unable to geocode' }, 50, 14), null);
+  assert.equal(LB.poiLandmark(ans('leisure', 'park', 'Big', 50, 14, .05), 50, 14), null);
+  assert.equal(LB.poiLandmark(ans('amenity', 'cafe', 'Café Slavia', 50.0815, 14.4135, .0002), 50.0815, 14.4135), null);
+  assert.equal(LB.poiLandmark({ error: 'Unable to geocode' }, 50, 14), null);
+  // a lake you stand by (reservoir) counts at any size, a river does not
+  assert.equal(LB.poiLandmark(ans('natural', 'water', 'Ross Lake', 48.85, -121.03, .15, { extratags: { water: 'reservoir' } }), 48.83, -121.05), 'Ross Lake');
+  assert.equal(LB.poiLandmark(ans('natural', 'water', 'Vltava', 50.08, 14.41, .05, { extratags: { water: 'river' } }), 50.08, 14.41), null);
+  // the answer carries the real country and town (Ross Lake is in the USA, the nearest offline town is in Canada)
+  assert.deepEqual(LB.poiNominatim({ ...ans('natural', 'water', 'Ross Lake', 48.85, -121.03, .15, { extratags: { water: 'reservoir' } }), address: { state: 'Washington', country: 'Spojené státy americké', country_code: 'us' } }, 48.83, -121.05),
+    { v: 2, name: 'Ross Lake', cc: 'US', town: null });
+  assert.deepEqual(LB.poiNominatim({ error: 'Unable to geocode' }, 0, 0), { v: 2, name: null, cc: null, town: null });
   assert.match(LB.poiUrl('50.088,14.421'), /^https:\/\/nominatim\.openstreetmap\.org\/reverse\?.*lat=50\.088&lon=14\.421.*accept-language=cs/);
 });
 

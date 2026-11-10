@@ -661,21 +661,29 @@ function labelPreview(photos,dates,country){
    for its public servers: on a phone it mostly answered "busy" or not at all). Nominatim returns the nearest point of
    interest or natural feature; OSM tags (category/type) say whether it is a landmark. Pure: builds the URL, reads the answer. */
 const POI_OK={tourism:/^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$/,historic:/^(castle|ruins|monument|fort|archaeological_site|church|monastery|city_gate|manor|palace|tower)$/,
-  leisure:/^(park|garden|nature_reserve)$/,natural:/^(beach|peak|volcano|waterfall|cave_entrance|bay|cape|glacier|spring|gorge)$/,
+  leisure:/^(park|garden|nature_reserve)$/,natural:/^(beach|peak|volcano|waterfall|cave_entrance|bay|cape|glacier|spring|gorge|water)$/,
   man_made:/^(lighthouse|tower|bridge)$/,boundary:/^(national_park|protected_area)$/,bridge:/./,waterway:/^waterfall$/,place:/^(island|islet)$/};
-const POI_BIG=/^(national_park|protected_area|nature_reserve|island)$/; // can be any size
+const POI_BIG=/^(national_park|protected_area|nature_reserve|island|water)$/; // can be any size
 function poiUrl(k){const [la,lo]=k.split(',');
   return `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${la}&lon=${lo}&zoom=18&layer=poi,natural,manmade&namedetails=1&extratags=1&accept-language=cs`}
+// The answer also says which country and town the spot is in (OSM borders). The offline list only knows the nearest
+// town, which near a border can be across it (Ross Lake, USA came out as Canada), so labels prefer this.
+// Returns {v:2, name: landmark or null, cc, town} (v marks answers in this format; older cached ones are asked again).
 function poiNominatim(json,lat,lon){
+  const ad=(json&&json.address)||{},cc=ad.country_code?ad.country_code.toUpperCase():null;
+  return {v:2,name:poiLandmark(json,lat,lon),cc,town:ad.city||ad.town||ad.village||ad.municipality||null};
+}
+function poiLandmark(json,lat,lon){
   if(!json||json.error||!json.category)return null;
   const ok=POI_OK[json.category];if(!ok||!ok.test(json.type))return null;
   const x=json.extratags||{};if(json.type==='protected_area'&&String(x.protect_class)!=='2')return null; // of protected areas, only national parks
+  if(json.type==='water'&&!/^(lake|reservoir|lagoon)$/.test(x.water||''))return null; // lakes, not rivers or ponds
   const d=json.namedetails||{},name=d['short_name:cs']||d['name:cs']||d.short_name||json.name||d.name;if(!name)return null;
   const b=(json.boundingbox||[]).map(Number); // [minlat,maxlat,minlon,maxlon]
   const inside=b.length===4&&lat>=b[0]&&lat<=b[1]&&lon>=b[2]&&lon<=b[3];
   const size=b.length===4?kmBetween({lat:b[0],lon:b[2]},{lat:b[1],lon:b[3]}):0;
-  if(inside&&size>.05)return (size<3||POI_BIG.test(json.type))?{name}:null; // standing in a park, beach, castle grounds…
-  return kmBetween({lat,lon},{lat:+json.lat,lon:+json.lon})<=.2?{name}:null; // a sight within ~150 m (+ the ~50 m rounding)
+  if(inside&&size>.05)return (size<3||POI_BIG.test(json.type))?name:null; // standing in a park, beach, castle grounds…
+  return kmBetween({lat,lon},{lat:+json.lat,lon:+json.lon})<=.2?name:null; // a sight within ~150 m (+ the ~50 m rounding)
 }
 /*LABELS-END*/
 
@@ -952,7 +960,10 @@ function placeOfPh(ph){if(!ph||ph.lat==null)return null;if(!PLACES){loadPlaces()
 // each photo's town, country and landmark (when lookups are on for this image), in the order the photos were taken
 function labelPhotos(pg){
   const on=S.online||!!pg.on;
-  return [...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>{const b=placeOfPh(p);if(!b)return null;const poi=on?POI.get(poiKey(p)):null;return {town:b.name,cc:b.cc,poi:poi?poi.name:null}});
+  return [...filled(pg)].sort((a,b)=>a.date-b.date).map(p=>{const b=placeOfPh(p);if(!b)return null;const poi=on?POI.get(poiKey(p)):null;
+    // the online answer knows the real country: if it disagrees with the offline nearest town, that town is across a border
+    if(poi&&poi.cc&&poi.cc!==b.cc)return {town:poi.town,cc:poi.cc,poi:poi.name};
+    return {town:b.name,cc:b.cc,poi:poi?poi.name:null}});
 }
 function labelFlags(pg){return {...labelDefaults(labelPhotos(pg)),...(pg.lf||{})}}
 function labelFor(pg){
@@ -975,7 +986,7 @@ function migrateLabel(pg){
 const POI=new Map();let poiNudge=null,poiLock=null,poiErr='',poiQ=[],poiBusy=false,poiDone=0,poiTotal=0,poiSaveT=0,poiRefT=0,poiWarned=false;
 const poiKey=ph=>ph.lat.toFixed(3)+','+ph.lon.toFixed(3);
 const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rejected spot isn't re-queued in a loop
-function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)POI.set(k,o[k])}).catch(()=>{})}
+function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===2)POI.set(k,o[k])}).catch(()=>{})} // older answers lack the country: ask again
 function poiSaveCache(){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),1500)}
 function poiEnqueue(photos,force){
   if(!S.online&&!force)return;
