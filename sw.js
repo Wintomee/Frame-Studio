@@ -1,18 +1,19 @@
 // Frame Studio service worker: app shell works offline; photos never leave the device.
 // Bump VERSION whenever index.html (or any shell file) changes so phones pick up the update.
-const VERSION = 'fs-v35';
+const VERSION = 'fs-v36';
 const SHELL = ['./', './index.html', './places.txt', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k.startsWith(VERSION.split('-')[0] + '-')).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (url.pathname.includes('/beta/')) return; // the beta at /beta/ has its own worker and cache
   // Page itself: network first so updates arrive quickly, cache as offline fallback.
   if (req.mode === 'navigate') {
     // cache: 'no-cache' revalidates with GitHub instead of reusing the browser's 10-minute HTTP copy

@@ -222,11 +222,54 @@ Per-photo `crop` {x,y,w,h} (0..1 of the original). `ow`/`oh` are the original pi
 **effective (cropped)** dimensions used everywhere, including the solver, the upscale check and drawing. After a crop
 the page is re-fitted, and if it becomes invalid the cheapest `buildAlts` option is applied automatically.
 
+### Collection model (branch `collection`, served as the beta at /beta/)
+The user's real process: keep a collection of good photos, then make slides from a few at a time, and know which photos
+are already on the TV (his wife adds photos too) or sent to the grandparents' frames. Prototyped with him first
+(artifact "Frame Studio Prototype"). Four tabs: **Photos** · **Edit** (only while slides are being edited) · **Slides** ·
+Settings (icon only).
+- State: `S.lib` = every photo in the collection; `S.pages` = **only the slides being edited** (so all the existing
+  editing code, recompose, hero, try-another, filmstrip and full screen work on that working set unchanged);
+  `S.done` = every other slide. A photo is on at most one slide (`slideMap`, `slideOf`). Deleting a slide or taking a
+  photo off a slide never deletes the photo; only Remove in the photo detail does.
+- **TV status per slide**: `pg.tv` + `pg.tvSig` (= `pageSig` when marked). `slideState`: `ed` (in Edit), `new`, `on`,
+  `chg` (signature differs: edited or restyled since upload; the signature covers layout, placement, label choices and
+  style, not the computed label, which changes while places load). A photo counts as on the TV when its slide is.
+- **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on TV
+  (default) / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
+  bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). **Hold** starts
+  selecting; in select mode tap toggles and hold opens the detail; selecting only toggles classes (`syncPhotoSel`) so
+  the grid keeps its scroll. Bar: Make slides, ★, "Sent" per frame. Detail sheet: swipe/arrows through the filtered
+  list, hero, date, location text (no coordinates; lookups start at import), TV state, frame toggles, Select (keeps
+  the sheet open), Slide, red Remove.
+- **Make slides** (`makeSlides`) arranges the selected free photos with `recompose(extra)` into `S.pages` and opens
+  Edit. `+` in the Edit filmstrip (`startPick`) opens Photos already in select mode ("Add to Edit"); photos already on
+  a slide are faded and can't be picked. **Done** (`finishEdit`) moves the slides to `S.done` and frees their 1000 px
+  previews (`ensurePrev` decodes them again when a slide is edited: `toBench`, which locks them so recompose won't churn).
+- **Edit tab** = the old Layout tab plus a collapsed **Frame** section (`#frmBox`, the old Frame tab: frame, background,
+  wall, padding; it applies to all slides, so usually skipped). "Split into 2" and "Merge" suggestions were dropped
+  (user's request): dragging a photo onto another slide merges, and while dragging, dashed **new-slide slots** appear
+  between the filmstrip thumbnails (`.newslot`, `body.dragging`, `newSlideWith`).
+- **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
+  To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
+  toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded
+  to the TV?" → `markTV`.
+- **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
+  online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
+  sizes stay a later step.
+- **Storage**: import keeps a 4K copy (long edge 3840, JPEG .92) instead of the original (user chose bigger copies over
+  previews only; a web app can't keep references into the iOS photo library). Assets: `file`, `prevBlob`, `thumbBlob`.
+- **Beta deploy**: `node tools/build-beta.cjs <branch index.html> <version>` writes `beta/` (own IndexedDB
+  `frame-studio-beta`, `fsb-` localStorage keys, own service worker and cache `fsb-…`, shares `../places.txt` and icons).
+  The main worker ignores `/beta/` and each worker only deletes its own old caches. Commit `beta/` on main; the main app
+  itself is unchanged until the branch is merged.
+
 ### Persistence
-IndexedDB `frame-studio-v2` with stores `assets` (original file blob plus a ~1000px `prevBlob`, dims, date, GPS) and
-`kv` (`state`: pages, crops, rules, style). Restore decodes **only the small previews**. Decoding every full-res photo
-on load crashed the iOS web view. A `localStorage` flag (`fs-restoring`) skips restore once if the previous attempt
-crashed. Unreferenced assets are purged on save, except while an Undo is pending or an import is running.
+IndexedDB `frame-studio-v2` with stores `assets` (4K copy, ~1000px `prevBlob`, ~400px `thumbBlob`, dims, date, GPS) and
+`kv` (`state` v3: `lib` (hero, crop, sent), `pages` (in Edit), `done`, photo frames, rules, style). Older v2 states are
+migrated on restore: every image becomes a finished slide, thumbnails are made once. Restore decodes **only
+thumbnails**, plus previews of slides in Edit. Decoding every full-res photo on load crashed the iOS web view. A
+`localStorage` flag (`fs-restoring`) skips restore once if the previous attempt crashed. Assets not in the collection
+are purged on save, except while an Undo is pending or an import is running.
 
 ### Locking (hidden, candidate for removal)
 Pages auto-lock when edited by hand, and recompose skips locked pages. The lock UI is hidden because the user isn't
@@ -234,12 +277,10 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
 
 ## UI decisions already made (don't undo without asking)
 - **Import goes through a review step first** (user's request): a full-screen grid of the new batch (`openReview`,
-  `RV.list`, scrolling in `.rvscroll`: with the grid itself as the flex scroller, iOS squashed the rows) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Arrange N photos" then auto-composes
-  (`arrangeNew`) and opens the Auto-arrange sheet (presets + collapsible fine-tune + try another), so rules can be
-  changed straight away. Cancel drops only the new batch. `S.importing` stays on during the review so its assets aren't
-  purged. Rules are not a tab.
-- Tabs: **Layout** (the only place editing gestures work), **Frame** (preview is view-only, no handles or badges),
-  **Export**. The tab bar is compact (icon and label inline, reduced bottom safe area). The user wanted tabs that look
+  `RV.list`, scrolling in `.rvscroll`: with the grid itself as the flex scroller, iOS squashed the rows) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Add N photos" puts
+  them in the collection and leaves them selected, so Make slides is one tap. Cancel drops only the new batch.
+  `S.importing` stays on during the review so its assets aren't purged. Rules are not a tab (Settings opens the sheet).
+- Tabs: see the collection model above (Edit is the only place editing gestures work). The tab bar is compact (icon and label inline, reduced bottom safe area). The user wanted tabs that look
   physical: the bar is a darker strip and the selected tab hangs from the page (page colour, side borders, rounded
   bottom, shadow, accent underline); the first tinted-tab attempt wasn't enough.
 - No status/info row: messages are a transient pill at the top, and photo actions (replace, crop, reset zoom, remove)

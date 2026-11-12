@@ -212,11 +212,80 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card li{display:grid;grid-template-columns:96px 1fr;gap:8px}
 .card li b{color:var(--accent)}
 input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;-webkit-user-select:text;user-select:text}
+/* ---------- collection: Photos / Slides / Settings tabs ---------- */
+body:not(.t-layout) header.top{display:none}
+.thead{display:flex;align-items:center;gap:8px;padding-top:4px}.thead h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em}
+.btn.slim{padding:7px 12px;font-size:13px}.btn.danger{color:var(--warn)}
+.fchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:-4px}.fchips::-webkit-scrollbar{display:none}.fchips .chip{flex:none;display:inline-flex;align-items:center;gap:6px}
+.fchips .chip .n{font-variant-numeric:tabular-nums;opacity:.7}
+.pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-inline:-6px}
+@media (min-width:640px){.pgrid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.ptile{position:relative;aspect-ratio:1;border:0;padding:0;background:var(--line);overflow:hidden;cursor:pointer;-webkit-touch-callout:none}
+.ptile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.ptile.sel{outline:3px solid var(--accent);outline-offset:-3px}
+.ptile.sel::after{content:"";position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 12 4 4 8-9' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+.ptile.ed{outline:2.5px dashed var(--accent);outline-offset:-2.5px}
+.ptile.na img{opacity:.3;filter:grayscale(.6)}
+.ptile .hs{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.45);color:#f5c542;display:grid;place-items:center}
+.ptile .hs svg{width:12px;height:12px;fill:currentColor;stroke:currentColor;stroke-width:1}
+.ptile .bl{position:absolute;left:4px;right:4px;bottom:4px;display:flex;align-items:center;gap:3px;pointer-events:none}
+.ptile .bd{height:18px;min-width:18px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.5);color:#fff;display:inline-grid;place-items:center}
+.ptile .bd.ed{background:var(--accent);color:var(--accent-text)}
+.ptile .bd svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.ltr{width:17px;height:17px;border-radius:50%;color:#fff;font-size:10px;font-weight:800;display:inline-grid;place-items:center;flex:none;line-height:1;box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
+.chip .ltr,.btn .ltr,.frlist .ltr{box-shadow:none}.ltr.big{width:24px;height:24px;font-size:12px}
+.phempty{display:grid;gap:4px}
+.bigadd{display:grid;justify-items:center;gap:10px;padding:56px 16px;border:1.5px dashed var(--line);border-radius:12px;background:none;color:var(--muted);font:inherit;font-weight:700;cursor:pointer}
+.bigadd svg{width:36px;height:36px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (min-width:640px){.sgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.scard{min-width:0;border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;display:grid;gap:5px;-webkit-touch-callout:none}
+.scard canvas{width:100%;aspect-ratio:16/9;display:block;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);pointer-events:none}
+.scard.sel canvas{outline:3px solid var(--accent);outline-offset:2px}
+.smeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;min-width:0}
+.smeta .d{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;border:1.5px solid currentColor;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex:none}
+.pill svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.4}
+.pill.on{color:var(--geo-ok)}.pill.chg{color:var(--warn)}.pill.new{color:var(--accent)}.pill.ed{color:var(--muted)}
+.selbar{position:fixed;left:0;right:0;bottom:calc(46px + env(safe-area-inset-bottom,0px)*.4);z-index:12;display:flex;justify-content:center;padding:0 10px;pointer-events:none}
+.selbar .in{pointer-events:auto;display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:960px;width:100%;overflow-x:auto;scrollbar-width:none}
+.selbar .cnt{font-size:13px;font-weight:700;padding:0 4px;white-space:nowrap}
+.selbar .btn{flex:none;padding:7px 11px;font-size:13px;gap:6px}.selbar .btn svg{width:17px;height:17px}
+.selbar .ib{width:34px;height:34px;flex:none}
+.pmodal{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center}
+.psheet{background:var(--bg);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:12px 14px calc(16px + env(safe-area-inset-bottom,0px));max-height:92dvh;overflow:auto;display:grid;gap:12px}
+.psheet h3{margin:0;font-size:17px}
+.pv{position:relative;touch-action:pan-y;background:#0c0c0d;border-radius:8px;overflow:hidden;display:grid;place-items:center;min-height:180px}
+.pv img,.pv canvas{display:block;max-width:100%;max-height:52dvh;object-fit:contain;pointer-events:none}
+.pv .nav{position:absolute;top:50%;margin-top:-17px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;cursor:pointer}
+.pv .nav svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}.pv .nav.l{left:8px}.pv .nav.r{right:8px}
+.pv .cnt{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;border-radius:9px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.geoln{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}.geoln svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+.geoln.ok svg{color:var(--geo-ok)}.geoln.wait{color:var(--muted)}.geoln.wait svg{color:var(--geo-no)}.geoln.none{color:var(--muted)}
+.tgl{display:inline-flex;align-items:center;gap:7px;border:1.5px dashed var(--line);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;background:none;cursor:pointer;color:var(--muted)}
+.tgl[aria-pressed="true"]{border-style:solid;border-color:var(--accent);color:var(--text);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.tgl svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.tgl.star[aria-pressed="true"] svg{color:#f5c542;fill:currentColor}
+.tgl:disabled{cursor:default}
+.btn.red{background:var(--warn);border-color:var(--warn);color:#fff}
+.set{display:grid;gap:8px}.set h4{margin:0;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.frlist{display:grid;gap:6px}.frrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface)}
+.frrow .t{flex:1;font-weight:700}.frrow button{font:inherit;font-size:13px;color:var(--muted);background:none;border:0;cursor:pointer}
+.addfr{flex-wrap:nowrap}.addfr #frName{flex:1;min-width:0}.addfr #frLetter{width:52px;flex:none;text-align:center;text-transform:uppercase}
+.frm{border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:0}
+.frm summary{list-style:none;display:flex;align-items:center;gap:10px;padding:11px 12px;color:var(--text);margin:0 !important}.frm summary::-webkit-details-marker{display:none}
+.frm summary .t{font-weight:800}.frm summary .s{flex:1;min-width:0;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frm summary::after{content:"›";color:var(--muted);font-size:18px;transition:transform .15s}.frm[open] summary::after{transform:rotate(90deg)}
+.frmin{display:grid;gap:14px;padding:0 12px 12px}
+.donebtn{flex:0 0 auto;align-self:stretch;border:0;border-radius:7px;background:var(--accent);color:var(--accent-text);font:inherit;font-weight:800;font-size:13px;padding:0 12px;cursor:pointer;margin:2px 0}
+.newslot{flex:0 0 0;width:0;opacity:0;border:1.5px dashed var(--accent);border-radius:7px;display:grid;place-items:center;color:var(--accent);transition:flex-basis .15s,opacity .15s;overflow:hidden;margin:0 -4px}
+.newslot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+body.dragging .newslot{flex-basis:40px;opacity:.8;margin:0}
+.newslot.drop{flex-basis:64px;opacity:1;background:color-mix(in srgb,var(--accent) 15%,transparent)}
+nav.tabbar button.ico{flex:0 0 52px}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <label class="onl" id="onlTop"><input type="checkbox" id="onlTopCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label>
   <div class="stage" id="stage">
     <div class="tv"><canvas id="cv" aria-label="Layout preview"></canvas>
       <button class="fsnav prev" id="fsPrev" aria-label="Previous image"></button><button class="fsnav next" id="fsNext" aria-label="Next image"></button><div class="fscount" id="fsCount"></div>
@@ -235,26 +304,39 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     <div class="opts"><div class="lblparts" id="labelParts" role="group" aria-label="Label for this image"><span class="label">Label</span>
         <button class="part" data-p="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/><path class="slash" d="M3.5 3.5l17 17"/></svg><span></span></button><button class="part" data-p="t"><span></span></button><button class="part" data-p="c"><span></span></button><button class="part" data-p="d"><span></span></button><button class="part edit" id="lblEditBtn" aria-label="Type your own label">✎</button></div>
       <p class="note lbltext" id="labelText" aria-live="polite"></p></div>
-  </section>
-
-  <section class="tab" data-tab="frame" hidden>
+    <details class="frm" id="frmBox"><summary><span class="t">Frame</span><span class="s" id="frmSum"></span></summary><div class="frmin">
     <div class="frames" id="frames"></div>
     <div class="opts" id="fopts"></div>
     <div class="row" id="swatches" role="group" aria-label="Background"><span class="label">Background</span></div>
     <div class="opts"><div class="row" id="walls" role="group" aria-label="Wall"><span class="label">Wall</span></div>
       <div class="row" id="wallDepth" role="group" aria-label="Wall depth" hidden><span class="label">Depth</span></div></div>
     <div class="row"><span class="label">Padding</span><input type="range" id="pad" min="0" max="14" step="0.25" value="6" aria-label="Padding"><span class="val" id="padVal">6%</span></div>
+    </div></details>
   </section>
 
-
-  <section class="tab" data-tab="export" hidden>
-    <div class="btns">
-      <button class="btn primary" id="bExportOne"></button>
-      <button class="btn" id="bExportAll"></button>
-      <button class="btn primary" id="bShare" hidden></button>
-      <button class="btn" id="bReopen"></button>
-      <button class="btn" id="bStartOver"></button>
+  <section class="tab" data-tab="photos" hidden>
+    <div class="thead"><h2>Photos</h2><span class="spacer"></span><button class="ib" id="phImport" aria-label="Add photos"></button></div>
+    <div class="phempty" id="phEmpty" hidden>
+      <label class="onl" id="onlTop"><input type="checkbox" id="onlTopCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label>
+      <button class="bigadd" id="emptyAdd"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="m3 16 4-4 4 4 2-2 4 4"/><path d="M20 2v6M17 5h6"/></svg>Add your good photos</button>
     </div>
+    <div class="fchips" id="phFilters"></div>
+    <div class="pgrid" id="phGrid"></div>
+  </section>
+  <section class="tab" data-tab="slides" hidden>
+    <div class="thead"><h2>Slides</h2><span class="spacer"></span><button class="btn primary slim" id="slExport"></button></div>
+    <div class="fchips" id="slFilters"></div>
+    <div class="sgrid" id="slGrid"></div>
+  </section>
+  <section class="tab" data-tab="settings" hidden>
+    <div class="thead"><h2>Settings</h2></div>
+    <div class="set"><h4>Photo frames</h4><div class="frlist" id="frList"></div>
+      <div class="row addfr"><input type="text" id="frName" placeholder="Name, e.g. Babička" aria-label="Frame name" autocomplete="off"><input type="text" id="frLetter" maxlength="1" placeholder="B" aria-label="Letter" autocomplete="off"><button class="btn" id="frAdd">Add</button></div>
+      <p class="note">Frames you send single photos to. Each photo you mark as sent shows the frame’s letter.</p></div>
+    <div class="set"><h4>Auto-arrange</h4><button class="btn" id="setRules"></button></div>
+    <div class="set"><h4>Places</h4><label class="onl"><input type="checkbox" id="onlSetCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label></div>
+    <div class="set"><h4>Exports</h4><button class="btn" id="bReopen"></button></div>
+    <div class="set"><button class="btn danger" id="bStartOver"></button></div>
   </section>
 </main>
 
@@ -278,6 +360,8 @@ input[type=text]{font:inherit;font-size:16px;color:var(--text);background:var(--
     </details>
     <div class="btns"><button class="btn" id="bRecompose"></button><button class="btn primary" id="bSheetDone" style="justify-content:center">Done</button></div>
 </div></div>
+<div class="selbar" id="selbar" hidden></div>
+<div class="pmodal" id="pmodal" hidden><div class="psheet" id="psheet" role="dialog" aria-modal="true"></div></div>
 <div class="toastp" id="toastp" hidden><span id="hint"></span><button id="undo" hidden>Undo</button></div>
 <div class="cellbar" id="cellbar">
   <button class="ib sm" id="bHero" aria-label="Make this the hero photo" title="Hero: make this photo the big one" aria-pressed="false"></button>
@@ -741,13 +825,19 @@ const ICONS={
   share:'<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
   reframe:'<rect x="2.5" y="4.5" width="19" height="15" rx="1"/><rect x="6" y="8" width="12" height="8"/>',
   restart:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/>',
-  wand:'<path d="m15 4 1 2 2 1-2 1-1 2-1-2-2-1 2-1zM4 20 14 10"/>'
+  wand:'<path d="m15 4 1 2 2 1-2 1-1 2-1-2-2-1 2-1zM4 20 14 10"/>',
+  photos:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/>',
+  slides:'<rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M9.5 6v12M15 6v12"/>',
+  gear:'<path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.8l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  pen:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/>',
+  tv:'<rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/>',
+  check:'<path d="m5 12 5 5 9-10"/>'
 };
 const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 [['bHero','star'],['bReplace','replace'],['bCrop','crop'],['bReset','reset'],['bRemove','remove'],['bFull','full'],['bFsClose','remove'],['bShuffle','shuffle'],['fsPrev','chevL'],['fsNext','chevR']].forEach(([id,k])=>$(id).innerHTML=svg(k));
-$('bExportOne').innerHTML=svg('export')+'<span>Export this image</span>';
 $('bReopen').innerHTML=svg('reframe')+'<span>Reopen an export to change its frame</span>';
-$('bStartOver').innerHTML=svg('restart')+'<span>Start over</span>';
+$('bStartOver').innerHTML=svg('trash')+'<span>Delete all photos and slides</span>';
+$('phImport').innerHTML=svg('plus');$('setRules').innerHTML=svg('rules')+'<span>Auto-arrange rules</span>';
 $('bRecompose').innerHTML=svg('shuffle')+'<span>Try another arrangement for this image</span>';
 
 const BGS=['#ffffff','#f1ede4','#d9d7d2','#3a3b3d','#000000'];
@@ -766,7 +856,8 @@ const PRESETS={
   minimal:{label:'Minimal crop',dates:0,portrait:true,minKeep:.9,maxUp:1,minArea:.08,min:1,max:4},
   bydate:{label:'By date',dates:2,portrait:false,minKeep:.75,maxUp:1.1,minArea:.06,min:1,max:5},
 };
-const S={pages:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'layout',rules:{...PRESETS.balanced},preset:'balanced',importing:false,online:true,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
+// pages = the slides being edited (the Edit tab); done = all other slides; lib = the collection of photos
+const S={pages:[],done:[],lib:[],pf:[],active:0,pad:.06,bg:'#f1ede4',wall:{kind:'none',depth:'medium'},frame:'float',sel:-1,showAll:false,k:1,tab:'photos',rules:{...PRESETS.balanced},preset:'balanced',importing:false,online:true,fopt:JSON.parse(JSON.stringify(FOPT_DEFAULT))};
 /* ins = outer moulding width; padding is measured inside it */
 const MW={wood:{s:.03,m:.045,l:.065},metal:{s:.014,m:.024,l:.038}};
 const insOf=f=>MW[f]?Math.round(MW[f][S.fopt[f].width]*H):0;
@@ -1091,16 +1182,17 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 function syncPoiBadge(){
   const on=poiQ.length>0;$('poiBadge').hidden=!on;poiWake(on);if(!on)return;
   // images done / images being looked up, so it matches the green pins; spots while there is no set yet (review)
-  const geo=S.pages.filter(p=>['wait','ready'].includes(geoState(p))),done=geo.filter(p=>geoState(p)==='ready').length,[a,b]=geo.length?[done,geo.length]:[poiDone,poiTotal];
+  // photos with a location: looked up / all, so it matches the collection; spots while reviewing a new batch
+  const geo=S.lib.filter(p=>p.lat!=null),done=geo.filter(p=>POI.has(poiKey(p))).length,[a,b]=geo.length&&!RV.list?[done,geo.length]:[poiDone,poiTotal];
   $('poiPct').textContent=`${a}/${b}`+(poiErr?` · ${poiErr}`:'');$('poiFill').style.width=(100*a/Math.max(1,b))+'%';
 }
-function allPhotos(){return [...S.pages.flatMap(filled),...(RV.list||[])]}
+function allPhotos(){return [...S.lib,...(RV.list||[])]}
 function setOnline(on){
   S.online=on;localStorage_set('online',on?'1':'0');
   if(on)poiEnqueue(allPhotos());else{poiQ.forEach(k=>poiQueued.delete(k));poiQ=[];poiDone=poiTotal=0;syncPoiBadge()}
   refresh();
 }
-function syncOnline(){$('onlTopCb').checked=$('onlRvCb').checked=S.online;$('onlTop').hidden=!!P()}
+function syncOnline(){$('onlTopCb').checked=$('onlRvCb').checked=$('onlSetCb').checked=S.online}
 const LFONT=px=>`600 ${px}px Manrope,system-ui,-apple-system,sans-serif`;
 function labelBox(pad,frame){
   const ins=insOf(frame),g=geoOf(pad,ins),size=g.p*(frame==='deco'?.24:.3); // art deco lines run through the border
@@ -1203,10 +1295,22 @@ function shrink(src,w,h,max){
 }
 async function loadPhoto(file){
   let ex={date:null,lat:null,lon:null};try{ex=parseExif(new DataView(await file.slice(0,262144).arrayBuffer()))}catch{}
-  const im=await imgFrom(file),w=im.naturalWidth,h=im.naturalHeight,prev=shrink(im,w,h,1000);freeImg(im);
-  return {file,prev,w,h,ow:w,oh:h,date:ex.date??file.lastModified??0,lat:ex.lat,lon:ex.lon,zoom:1,cx:.5,cy:.5};
+  const im=await imgFrom(file);let w=im.naturalWidth,h=im.naturalHeight;const prev=shrink(im,w,h,1000);
+  // the collection keeps a 4K copy, which is all a TV can show, instead of the full-size original (about 4x smaller)
+  let keep=file;if(Math.max(w,h)>3840){const c=shrink(im,w,h,3840);const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.92));if(b){keep=b;w=c.width;h=c.height}c.width=c.height=1}
+  freeImg(im);
+  return {file:keep,prev,thumbBlob:await thumbOf(prev),w,h,ow:w,oh:h,date:ex.date??file.lastModified??0,lat:ex.lat,lon:ex.lon,zoom:1,cx:.5,cy:.5,sent:[]};
 }
 async function fullOf(ph){return ph.src||imgFrom(ph.file)}
+// small square-ish thumbnail for the Photos grid and slide cards
+function thumbOf(src){const c=shrink(src,src.width,src.height,400);return new Promise(r=>c.toBlob(b=>{c.width=c.height=1;r(b)},'image/jpeg',.8))}
+// the 1000 px preview is decoded only for photos on slides being edited (decoding them all crashed iOS before)
+async function ensurePrev(ph){
+  if(ph.prev)return ph;const a=await DB.get('assets',ph.id).catch(()=>null);
+  if(a&&a.prevBlob){const im=await imgFrom(a.prevBlob);ph.prev=shrink(im,im.naturalWidth,im.naturalHeight,1000);freeImg(im)}
+  else{const c=document.createElement('canvas');c.width=c.height=4;ph.prev=c}
+  return ph;
+}
 
 
 
@@ -1217,41 +1321,56 @@ const DB=(()=>{
   const tx=async(store,mode,fn)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction(store,mode),req=fn(t.objectStore(store));t.oncomplete=()=>res(req&&req.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})};
   return {put:(s,k,v)=>tx(s,'readwrite',o=>o.put(v,k)),get:(s,k)=>tx(s,'readonly',o=>o.get(k)),del:(s,k)=>tx(s,'readwrite',o=>o.delete(k)),keys:s=>tx(s,'readonly',o=>o.getAllKeys())};
 })();
-async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'image/jpeg',.85));await DB.put('assets',ph.id,{file:ph.file,prevBlob:pb,w:ph.ow??ph.w,h:ph.oh??ph.h,date:ph.date,lat:ph.lat,lon:ph.lon})}catch{}}
+async function putAsset(ph){try{const pb=await new Promise(r=>ph.prev.toBlob(r,'image/jpeg',.85));const tb=ph.thumbBlob||await thumbOf(ph.prev);
+  if(!ph.thumb)ph.thumb=URL.createObjectURL(tb);await DB.put('assets',ph.id,{file:ph.file,prevBlob:pb,thumbBlob:tb,w:ph.ow??ph.w,h:ph.oh??ph.h,date:ph.date,lat:ph.lat,lon:ph.lon});delete ph.thumbBlob}catch{}}
 let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(()=>{saveT=0;saveState()},700)}
 // leaving or hiding the app saves a pending change right away (iOS may not come back to finish the delay)
 const flushSave=()=>{if(saveT){clearTimeout(saveT);saveT=0;saveState()}};
 addEventListener('pagehide',flushSave);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave()});
+const phRec=p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null;
+const pgRec=pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,tSel:pg.tSel,cSel:pg.cSel,on:pg.on,tv:pg.tv||undefined,tvSig:pg.tvSig,photos:pg.photos.map(phRec)});
 async function saveState(){
   try{
-    await DB.put('kv','state',{v:2,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,
-      pages:S.pages.map(pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,tSel:pg.tSel,cSel:pg.cSel,on:pg.on,photos:pg.photos.map(p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null)}))});
+    await DB.put('kv','state',{v:3,tab:S.tab,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,pf:S.pf,
+      lib:S.lib.map(p=>({id:p.id,hero:p.hero||undefined,crop:p.crop||null,sent:p.sent&&p.sent.length?p.sent:undefined})),
+      pages:S.pages.map(pgRec),done:S.done.map(pgRec)});
     if(S.importing||undoFn)return;
-    const used=new Set(S.pages.flatMap(pg=>filled(pg).map(p=>p.id)));
+    const used=new Set([...S.lib,...(RV.list||[])].map(p=>p.id)); // the collection keeps its photos; slides only point at them
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
   }catch{}
 }
 async function restore(){
   try{
-    const st=await DB.get('kv','state');if(!st||!st.pages||!st.pages.length)return false;
-    hint('Restoring your set…');
-    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom'});
+    const st=await DB.get('kv','state');if(!st)return false;
+    const v3=st.v>=3,oldPages=v3?[...(st.pages||[]),...(st.done||[])]:(st.pages||[]);
+    const ids=v3?(st.lib||[]).map(q=>q.id):[...new Set(oldPages.flatMap(pg=>pg.photos.filter(Boolean).map(q=>q.id)))];
+    if(!ids.length&&!oldPages.length)return false;
+    hint('Restoring your photos…');
+    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom',pf:st.pf||[]});
     if(S.rules.dates===undefined)S.rules.dates=S.rules.order?2:1;delete S.rules.order;setPad(st.pad??S.pad);
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
-    const pages=[];
-    for(const pg of st.pages){
-      const photos=[];
-      for(const q of pg.photos){
-        const a=q&&await DB.get('assets',q.id);
-        if(!a||!a.prevBlob){photos.push(undefined);continue}
-        const im=await imgFrom(a.prevBlob),prev=shrink(im,im.naturalWidth,im.naturalHeight,1000);freeImg(im);
-        const cr=q.crop||null;photos.push({id:q.id,file:a.file,prev,ow:a.w,oh:a.h,w:cr?Math.round(a.w*cr.w):a.w,h:cr?Math.round(a.h*cr.h):a.h,crop:cr,hero:!!q.hero,date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:q.zoom,cx:q.cx,cy:q.cy});
-      }
-      if(photos.some(Boolean))pages.push(migrateLabel({lm:st.labelMode,...pg,photos})); // older sets had one label mode for the whole set
+    // the collection: small thumbnails only (older sets get them made once from the preview)
+    const libRec=new Map((st.lib||[]).map(q=>[q.id,q])),pgPh=new Map(oldPages.flatMap(pg=>pg.photos.filter(Boolean).map(q=>[q.id,q])));
+    const byId=new Map();let n=0;
+    for(const id of ids){
+      const a=await DB.get('assets',id);if(!a||!a.prevBlob)continue;
+      let tb=a.thumbBlob;
+      if(!tb){hint(`Updating your photos… ${++n}`);const im=await imgFrom(a.prevBlob);tb=await thumbOf(im);freeImg(im);a.thumbBlob=tb;await DB.put('assets',id,a)}
+      const q={...(pgPh.get(id)||{}),...(libRec.get(id)||{})},cr=q.crop||null;
+      byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:cr?Math.round(a.w*cr.w):a.w,h:cr?Math.round(a.h*cr.h):a.h,crop:cr,hero:!!q.hero,
+        date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:1,cx:.5,cy:.5,sent:q.sent||[]});
     }
-    S.pages=pages;S.active=clamp(st.active||0,0,Math.max(0,pages.length-1));hint('');
-    return pages.length>0;
-  }catch{return false}
+    S.lib=[...byId.values()].sort((a,b)=>a.date-b.date);
+    const build=list=>{const out=[];for(const pg of list||[]){
+      const photos=pg.photos.map(q=>{const ph=q&&byId.get(q.id);if(!ph)return undefined;ph.zoom=q.zoom??1;ph.cx=q.cx??.5;ph.cy=q.cy??.5;return ph});
+      if(photos.some(Boolean))out.push(migrateLabel({lm:st.labelMode,...pg,photos}))}return out};
+    // older sets: every image becomes a finished slide; nothing is being edited
+    S.done=build(v3?st.done:st.pages);S.pages=v3?build(st.pages):[];
+    for(const ph of S.pages.flatMap(filled))await ensurePrev(ph);
+    S.active=clamp(st.active||0,0,Math.max(0,S.pages.length-1));
+    S.tab=S.pages.length?(st.tab||'layout'):(st.tab&&st.tab!=='layout'?st.tab:'photos');hint('');
+    return S.lib.length>0;
+  }catch(e){console.error(e);return false}
 }
 
 /* ---------- set operations ---------- */
@@ -1326,7 +1445,7 @@ function renderReview(){
   const g=$('rvGrid'),n=RV.list.length,h=RV.list.filter(p=>p.hero).length;g.innerHTML='';
   const geo=RV.list.filter(p=>p.lat!=null).length; // location check: does the iPhone picker keep GPS?
   $('reviewH').textContent=`${n} photo${n===1?'':'s'} · ${geo} with location`+(h?` · ${h} hero${h===1?'':'es'}`:'');
-  $('rvGo').textContent=n?`Arrange ${n} photo${n===1?'':'s'}`:'Arrange';$('rvGo').disabled=!n;
+  $('rvGo').textContent=n?`Add ${n} photo${n===1?'':'s'}`:'Add';$('rvGo').disabled=!n;
   RV.list.forEach(ph=>{
     const t=document.createElement('div');t.className='rvtile';t.setAttribute('role','button');t.setAttribute('aria-pressed',!!ph.hero);t.setAttribute('aria-label','Photo, tap to make it a hero');
     t.innerHTML=`<canvas width="200" height="200"></canvas><span class="st">${svg('star')}</span><button class="x" aria-label="Remove photo">${svg('remove')}</button>`;
@@ -1338,29 +1457,36 @@ function renderReview(){
   });
 }
 $('rvAdd').onclick=()=>openImport();
-['onlTopCb','onlRvCb'].forEach(id=>$(id).onchange=e=>setOnline(e.target.checked));
+['onlTopCb','onlRvCb','onlSetCb'].forEach(id=>$(id).onchange=e=>setOnline(e.target.checked));
 $('rvCancel').onclick=()=>{RV.list=null;$('review').hidden=true;S.importing=false;scheduleSave();hint('Import cancelled.')};
-$('rvGo').onclick=()=>{const l=RV.list;RV.list=null;$('review').hidden=true;arrangeNew(l)};
-async function arrangeNew(news){
-  hint('Composing…');await tick();
-  recompose(news);
-  const first=S.pages.findIndex(pg=>filled(pg).includes(news[0]));if(first>=0)S.active=first;
-  S.importing=false;
-  refresh();
-  const unl=S.pages.filter(p=>!p.locked).length;
-  hint(`${news.length} photo${news.length>1?'s':''} added · ${S.pages.length} image${S.pages.length>1?'s':''} in the set${S.pages.length>unl?`, ${S.pages.length-unl} locked`:''}.`);
-  openSheet();
+// the batch joins the collection and stays selected, so "Make slides" is one tap away
+$('rvGo').onclick=()=>{
+  const l=RV.list;RV.list=null;$('review').hidden=true;S.importing=false;
+  const have=new Set(S.lib.map(p=>p.id));l.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
+  if(PH.pick){l.forEach(p=>PH.sel.add(p.id))}else{PH.sel=new Set(l.map(p=>p.id))}
+  PH.flt='notv';S.tab='photos';refresh();
+  hint(`${l.length} photo${l.length>1?'s':''} added.`);
+};
+// selected photos → slides on the Edit tab, arranged with the current rules (like auto-arrange used to do on import)
+async function makeSlides(list){
+  const free=list.filter(p=>!slideOf(p.id));
+  if(!free.length){hint('Those photos are already on slides.');return}
+  hint('Composing…');await tick();for(const p of free){await ensurePrev(p);resetP(p)}
+  const before=S.pages.length;recompose(free);
+  const first=S.pages.findIndex(pg=>filled(pg).includes(free[0]));if(first>=0)S.active=first;
+  PH.sel.clear();PH.pick=false;S.tab='layout';refresh();
+  const skip=list.length-free.length;hint(`${S.pages.length-before>0?S.pages.length-before:'No'} new slide${S.pages.length-before===1?'':'s'}`+(skip?` · ${skip} already on a slide`:'')+'.');
   if(!localStorage_get('tour')){showTour();localStorage_set('tour','1')}
 }
 $('importFile').addEventListener('change',e=>{const f=[...e.target.files];if(f.length)importFiles(f)});
 const openImport=()=>{const f=$('importFile');f.value='';f.click()};
-$('emptyBtn').onclick=openImport;
+$('emptyBtn').onclick=openImport;$('emptyAdd').onclick=openImport;$('phImport').onclick=openImport;
 
 let cellTarget=-1;
 function pickCell(i){cellTarget=i;const f=$('cellFile');f.value='';f.click()}
 $('cellFile').addEventListener('change',async e=>{
   const file=e.target.files[0],pg=P();if(!file||!pg)return;hint('Loading…');
-  try{const ph=await loadPhoto(file);ph.id=newId();await putAsset(ph);pg.photos[cellTarget]=ph;S.sel=cellTarget;touched(pg);hint('')}
+  try{const ph=await loadPhoto(file);ph.id=newId();await putAsset(ph);S.lib.push(ph);S.lib.sort((a,b)=>a.date-b.date);poiEnqueue([ph]);pg.photos[cellTarget]=ph;S.sel=cellTarget;touched(pg);hint('')}
   catch{hint('That file couldn’t be opened as an image.')}
   refresh();
 });
@@ -1406,7 +1532,7 @@ cv.addEventListener('pointerdown',e=>{
     if(i>=0&&P().photos[i]){
       S.sel=i;syncBar();render();
       const me=G;
-      G.lp=setTimeout(()=>{if(G===me&&!me.moved&&ptrs.size===1){me.swap=true;me.target=me.i;if(navigator.vibrate)navigator.vibrate(10);showGhost(P().photos[me.i],me.client.x,me.client.y);render()}},380);
+      G.lp=setTimeout(()=>{if(G===me&&!me.moved&&ptrs.size===1){me.swap=true;me.target=me.i;document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(10);showGhost(P().photos[me.i],me.client.x,me.client.y);render()}},380);
     }
   }else if(ptrs.size===2&&G&&!G.gutter&&P().photos[G.i]){
     const [a,b]=[...ptrs.values()];G.pinch={d:dist(a,b)||1,z:P().photos[G.i].zoom};G.moved=true;
@@ -1423,9 +1549,10 @@ cv.addEventListener('pointermove',e=>{
   G.last=p;
   if(G.swap){
     moveGhost(e.clientX,e.clientY);
-    const el=document.elementFromPoint(e.clientX,e.clientY),th=el&&el.closest&&el.closest('.thumb');
+    const el=document.elementFromPoint(e.clientX,e.clientY),th=el&&el.closest&&el.closest('.thumb'),sl=el&&el.closest&&el.closest('.newslot');
     G.dropPg=th&&th.dataset.pg!==P().id?th.dataset.pg:null;setDrop(G.dropPg);
-    G.target=G.dropPg?-1:hit(p);render();return;
+    G.slot=sl?+sl.dataset.at:null;document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',x===sl));
+    G.target=G.dropPg||sl?-1:hit(p);render();return;
   }
   if(dist(p,G.start)>8*S.k)G.moved=true;
   if(G.gutter){
@@ -1450,9 +1577,10 @@ function endPtr(e){
   clearTimeout(G.lp);
   const pg=P();
   if(G.swap){
-    ghost.style.display='none';setDrop(null);
+    ghost.style.display='none';setDrop(null);document.body.classList.remove('dragging');document.querySelectorAll('.newslot.drop').forEach(x=>x.classList.remove('drop'));
     if(e.type==='pointerup'){
       if(G.dropPg){movePhoto(G.i,G.dropPg);G=null;return}
+      if(G.slot!=null){newSlideWith(G.i,G.slot);G=null;return}
       const t=G.target;
       if(t>=0&&t!==G.i){const a=pg.photos[G.i];pg.photos[G.i]=pg.photos[t];pg.photos[t]=a;S.sel=pg.photos[t]?t:-1;touched(pg)}
     }
@@ -1486,6 +1614,15 @@ cv.addEventListener('wheel',e=>{if(!P()||S.tab!=='layout')return;const i=hit(toE
   clearTimeout(wheelT);wheelT=setTimeout(()=>{drawThumbFor(P());scheduleSave()},300)},{passive:false});
 function resetCrop(i){const ph=P().photos[i];if(ph){resetP(ph);touched();render();drawThumbFor(P());scheduleSave()}}
 
+// dropped between two slides: the photo leaves its slide and starts a new one there
+function newSlideWith(i,at){
+  const src=P();if(!src)return;
+  if(filled(src).length<2){hint('It’s already alone on its slide.');render();return}
+  const before=S.pages.map(snapPage),act=S.active,ph=src.photos[i];
+  src.photos[i]=undefined;src.photos=filled(src);relayout(src);src.locked=true;resetP(ph);
+  const pg=pageFrom(bestPage([ph],rules()),true);S.pages.splice(at,0,pg);S.active=S.pages.indexOf(pg);S.sel=-1;refresh();
+  toast('New slide.',()=>{S.pages=before;S.active=act});
+}
 function movePhoto(i,tid){
   const src=P(),dst=S.pages.find(p=>p.id===tid);if(!dst||dst===src)return;
   if(filled(dst).length>=MAX){hint('That image already has 6 photos.');render();return}
@@ -1514,7 +1651,7 @@ $('bLock').onclick=()=>{const pg=P();if(!pg)return;pg.locked=!pg.locked;syncBar(
 $('bDelPage').onclick=()=>{
   const pg=P();if(!pg)return;const at=S.active,snap=snapPage(pg);
   S.pages.splice(at,1);S.active=clamp(at,0,Math.max(0,S.pages.length-1));S.sel=-1;refresh();
-  toast('Image deleted.',()=>{S.pages.splice(at,0,snap);S.active=at});
+  toast('Slide deleted; its photos stay in Photos.',()=>{S.pages.splice(at,0,snap);S.active=at});
 };
 $('bReplace').onclick=()=>pickCell(S.sel);
 $('bReset').onclick=()=>resetCrop(S.sel);
@@ -1716,7 +1853,7 @@ $('bHero').onclick=async()=>{
 $('bRemove').onclick=()=>{
   const pg=P(),at=S.active,snap=snapPage(pg);pg.photos[S.sel]=undefined;S.sel=-1;
   if(!filled(pg).length){S.pages.splice(at,1);S.active=clamp(at,0,Math.max(0,S.pages.length-1))}else{pg.photos=filled(pg);relayout(pg);pg.locked=true}
-  refresh();toast('Photo removed.',()=>{if(S.pages[at]&&S.pages[at].id===snap.id)S.pages[at]=snap;else S.pages.splice(at,0,snap);S.active=at});
+  refresh();toast('Taken off this slide; it stays in Photos.',()=>{if(S.pages[at]&&S.pages[at].id===snap.id)S.pages[at]=snap;else S.pages.splice(at,0,snap);S.active=at});
 };
 function setFull(on){stage.classList.toggle('full',on);document.body.classList.toggle('fs',on);syncRot()}
 function syncRot(){stage.classList.toggle('rot',stage.classList.contains('full')&&innerHeight>innerWidth);render()}
@@ -1745,6 +1882,8 @@ $('tour').onclick=e=>{if(e.target.id==='tour')$('tour').hidden=true};
 let stripAt='';
 function renderStrip(){
   const wrap=$('strip'),keep=wrap.scrollLeft;wrap.innerHTML=''; // rebuilding would reset the scroll; put it back below
+  const slot=at=>{const d=document.createElement('div');d.className='newslot';d.dataset.at=at;d.innerHTML=svg('plus');d.setAttribute('aria-hidden','true');wrap.appendChild(d)};
+  slot(0);
   S.pages.forEach((pg,i)=>{
     const b=document.createElement('button');b.className='thumb';b.dataset.pg=pg.id;b.setAttribute('aria-current',i===S.active);
     b.setAttribute('aria-label',`Image ${i+1}${pg.locked?', locked':''}`);
@@ -1752,29 +1891,233 @@ function renderStrip(){
     b.innerHTML=`<canvas></canvas>${gs?`<span class="pst ${gs}" aria-hidden="true">${svg(gs==='none'?'pinx':'pin')}</span>`:''}${i===S.active?`<span class="del" role="button" aria-label="Delete this image">${svg('remove')}</span>`:''}`;
     const del=b.querySelector('.del');if(del)del.onclick=e=>{e.stopPropagation();$('bDelPage').onclick()};
     b.onclick=()=>{if(S.active===i)return;S.active=i;S.sel=-1;refresh()};
-    wrap.appendChild(b);drawInto(b.querySelector('canvas'),stOf(pg));
+    wrap.appendChild(b);drawInto(b.querySelector('canvas'),stOf(pg));slot(i+1);
   });
-  const add=document.createElement('button');add.className='addthumb';add.innerHTML=svg('plus');add.setAttribute('aria-label','Import more photos');add.onclick=openImport;wrap.appendChild(add);
+  // + picks more photos from the collection (select mode already on); Done hands the slides over to the Slides tab
+  const add=document.createElement('button');add.className='addthumb';add.innerHTML=svg('plus');add.setAttribute('aria-label','Add photos from your collection');add.onclick=startPick;wrap.appendChild(add);
   if(S.pages.length){const w=document.createElement('button');w.className='addthumb';w.innerHTML=svg('rules');w.setAttribute('aria-label','Auto-arrange rules');w.title='Auto-arrange rules';w.onclick=openSheet;wrap.appendChild(w)}
+  if(S.pages.length){const d=document.createElement('button');d.className='donebtn';d.textContent='Done';d.setAttribute('aria-label','Done editing these slides');d.onclick=finishEdit;wrap.appendChild(d)}
   // only when the selection changes: background lookups re-render the strip and must not yank it back while you scroll
   wrap.scrollLeft=keep;
   const cur=wrap.querySelector('[aria-current="true"]');if(cur&&stripAt!==S.active+':'+S.pages.length){stripAt=S.active+':'+S.pages.length;cur.scrollIntoView({block:'nearest',inline:'nearest'})}
 }
 function drawThumbFor(pg){if(!pg)return;const c=document.querySelector(`.thumb[data-pg="${pg.id}"] canvas`);if(c)drawInto(c,stOf(pg));}
 
-/* ---------- tabs ---------- */
-const TABS=[['layout','Layout'],['frame','Frame'],['export','Export']];
-TABS.forEach(([id,name])=>{const b=document.createElement('button');b.setAttribute('role','tab');b.dataset.t=id;b.innerHTML=svg(id)+name;b.onclick=()=>{S.tab=id;syncTabs()};$('tabs').appendChild(b)});
+/* ---------- tabs: Photos (the collection) · Edit (only while slides are being edited) · Slides · Settings ---------- */
+const TABS=[['photos','Photos','photos'],['layout','Edit','layout'],['slides','Slides','slides'],['settings','Settings','gear']];
+TABS.forEach(([id,name,ic])=>{const b=document.createElement('button');b.setAttribute('role','tab');b.dataset.t=id;b.innerHTML=svg(ic)+(id==='settings'?'':name);
+  if(id==='settings'){b.className='ico';b.setAttribute('aria-label',name)}b.onclick=()=>{S.tab=id;closeModal();syncTabs();scheduleSave()};$('tabs').appendChild(b)});
 function syncTabs(){
-  document.querySelectorAll('nav.tabbar button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===S.tab));
+  if(S.tab==='layout'&&!S.pages.length)S.tab='photos';
+  document.querySelectorAll('nav.tabbar button').forEach(b=>{b.setAttribute('aria-selected',b.dataset.t===S.tab);if(b.dataset.t==='layout')b.hidden=!S.pages.length});
   document.querySelectorAll('section.tab').forEach(s=>s.hidden=s.dataset.tab!==S.tab);
-  document.querySelector('header.top').classList.toggle('nolayout',S.tab!=='layout');
+  document.body.classList.toggle('t-layout',S.tab==='layout');
   if(S.tab!=='layout'){S.sel=-1;if(stage.classList.contains('full'))setFull(false)}
   render();
-  if(S.tab==='frame'){renderFrames();syncWall()}
-  if(S.tab==='layout')renderSugs();
-  if(S.tab==='export')syncExport();
+  if(S.tab==='layout'){renderSugs();syncFrmSum();if($('frmBox').open){renderFrames();syncWall()}}
+  if(S.tab==='photos')renderPhotos();
+  if(S.tab==='slides')renderSlides();
+  if(S.tab==='settings')renderSettings();
+  syncSelbar();
 }
+$('frmBox').addEventListener('toggle',()=>{if($('frmBox').open){renderFrames();syncWall()}});
+function syncFrmSum(){const f=FRAME_LIST.find(x=>x[0]===S.frame);$('frmSum').textContent=`${f?f[1]:''} · ${+(S.pad*100).toFixed(1)}%`+(S.wall.kind!=='none'?` · ${S.wall.kind}`:'')}
+
+// hold = select (in select mode: hold opens the photo); tap = open (in select mode: add or remove)
+function holdable(el,onHold,onTap){let t=0,held=false,x0=0,y0=0;
+  el.addEventListener('pointerdown',e=>{held=false;x0=e.clientX;y0=e.clientY;clearTimeout(t);t=setTimeout(()=>{held=true;if(navigator.vibrate)navigator.vibrate(10);onHold()},420)});
+  el.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-x0,e.clientY-y0)>10)clearTimeout(t)});
+  ['pointerup','pointercancel','pointerleave'].forEach(k=>el.addEventListener(k,()=>clearTimeout(t)));
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  el.addEventListener('click',()=>{if(held){held=false;return}onTap()})}
+
+/* ---------- where photos are: a photo is on at most one slide ---------- */
+const PH={sel:new Set(),pick:false,flt:'notv'},SL={sel:new Set(),flt:'todo'};
+const PF_COLORS=['#c27a2c','#8a4fa3','#3f8f8a','#b0475e','#4a5fc1','#6b7f2a'];
+function slideMap(){const m=new Map();[...S.done,...S.pages].forEach(pg=>filled(pg).forEach(p=>m.set(p.id,pg)));return m}
+const slideOf=id=>slideMap().get(id);
+const editing=pg=>S.pages.includes(pg);
+// what the TV shows is recorded per slide; "changed" = edited (or restyled) since it was marked as on the TV
+const pageSig=pg=>JSON.stringify([pg.cells,pg.x.map(v=>+v.toFixed(4)),pg.y.map(v=>+v.toFixed(4)),pg.photos.map(p=>p&&[p.id,+(+p.zoom).toFixed(3),+(+p.cx).toFixed(3),+(+p.cy).toFixed(3),p.crop]),
+  pg.label,pg.lf,pg.lmSel,pg.tSel,pg.cSel,S.frame,S.bg,+S.pad.toFixed(4),S.wall,S.fopt[S.frame]]);
+const slideState=pg=>editing(pg)?'ed':!pg.tv?'new':pageSig(pg)!==pg.tvSig?'chg':'on';
+const onTVp=(p,sm)=>{const pg=sm.get(p.id);return !!(pg&&pg.tv)};
+const ST_LABEL={on:'On TV',chg:'Changed',new:'Not on TV',ed:'Editing'};
+const pillHTML=st=>`<span class="pill ${st}">${st==='on'?svg('tv'):''}${ST_LABEL[st]}</span>`;
+const ltr=f=>`<span class="ltr" style="background:${f.color}">${esc(f.letter)}</span>`;
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Photos tab ---------- */
+function phList(sm=slideMap()){const f=PH.flt;return S.lib.filter(p=>f==='all'||(f==='notv'?!onTVp(p,sm):f==='hero'?p.hero:!(p.sent||[]).includes(f)))}
+function renderPhotos(){
+  const sm=slideMap(),empty=!S.lib.length;$('phEmpty').hidden=!empty;$('phFilters').hidden=empty;
+  if(!S.pf.some(f=>f.id===PH.flt)&&!['notv','all','hero'].includes(PH.flt))PH.flt='notv';
+  const cnt=k=>S.lib.filter(p=>k==='all'||(k==='notv'?!onTVp(p,sm):k==='hero'?p.hero:!(p.sent||[]).includes(k))).length;
+  const chips=[['notv','Not on TV'],['all','All'],['hero',svg('star')+'Hero'],...S.pf.map(f=>[f.id,ltr(f)+'Not sent'])];
+  $('phFilters').innerHTML=chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${PH.flt===k}">${l} <span class="n">${cnt(k)}</span></button>`).join('');
+  $('phFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{PH.flt=b.dataset.f;renderPhotos()});
+  const g=$('phGrid');g.innerHTML='';
+  for(const p of phList(sm)){
+    const pg=sm.get(p.id),b=document.createElement('button');b.className='ptile';b.dataset.id=p.id;
+    const tvIc=pg?(editing(pg)?`<span class="bd ed">${svg('pen')}</span>`:pg.tv?`<span class="bd">${svg('tv')}</span>`:`<span class="bd">${svg('slides')}</span>`):'';
+    const lt=(p.sent||[]).map(id=>S.pf.find(f=>f.id===id)).filter(Boolean).map(ltr).join('');
+    b.innerHTML=`<img src="${p.thumb||''}" alt="" loading="lazy" decoding="async" draggable="false">${p.hero?`<span class="hs">${svg('star')}</span>`:''}<span class="bl">${tvIc}<span class="spacer"></span>${lt}</span>`;
+    b.setAttribute('aria-label','Photo');
+    holdable(b,()=>{if(PH.sel.size||PH.pick)openPhoto(p.id);else{PH.sel.add(p.id);syncPhotoSel()}},()=>{
+      if(PH.pick&&sm.get(p.id)){hint('Already on a slide.');return}
+      if(PH.pick||PH.sel.size){PH.sel.has(p.id)?PH.sel.delete(p.id):PH.sel.add(p.id);syncPhotoSel()}else openPhoto(p.id)});
+    g.appendChild(b);
+  }
+  syncPhotoSel();
+}
+// selection changes only touch classes and the bar, so the grid keeps its scroll position
+function syncPhotoSel(){
+  const sm=slideMap();
+  $('phGrid').querySelectorAll('.ptile').forEach(t=>{const pg=sm.get(t.dataset.id);t.classList.toggle('sel',PH.sel.has(t.dataset.id));t.classList.toggle('ed',!!pg&&editing(pg));t.classList.toggle('na',PH.pick&&!!pg)});
+  syncSelbar();
+}
+function startPick(){PH.pick=true;PH.sel.clear();PH.flt='notv';S.tab='photos';syncTabs()}
+function syncSelbar(){
+  const bar=$('selbar');let html='';
+  if(S.tab==='photos'&&(PH.sel.size||PH.pick)){
+    const n=PH.sel.size;
+    html=PH.pick?`<button class="ib" data-a="x" aria-label="Cancel">${svg('remove')}</button><span class="cnt">${n?n+' selected':'Tap photos to add'}</span><span class="spacer"></span><button class="btn primary" data-a="make" ${n?'':'disabled'}>${svg('slides')}Add to Edit</button>`
+      :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span><span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}Make slides</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
+        S.pf.map(f=>`<button class="btn" data-a="sent" data-f="${f.id}">${ltr(f)}Sent</button>`).join('');
+  }else if(S.tab==='slides'&&SL.sel.size){
+    html=`<button class="ib" data-a="sx" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${SL.sel.size}</span><span class="spacer"></span><button class="btn primary" data-a="edit">${svg('pen')}Edit</button><button class="btn" data-a="exp">${svg('export')}</button><button class="btn" data-a="tv1">${svg('tv')}On TV</button><button class="btn" data-a="tv0">Off TV</button><button class="btn danger" data-a="del">${svg('trash')}</button>`;
+  }
+  bar.hidden=!html;bar.innerHTML=html?`<div class="in">${html}</div>`:'';
+  bar.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>selAction(b.dataset.a,b.dataset.f));
+}
+function selAction(a,f){
+  const ph=()=>S.lib.filter(p=>PH.sel.has(p.id)),sl=()=>[...S.done,...S.pages].filter(pg=>SL.sel.has(pg.id));
+  if(a==='x'){const back=PH.pick&&S.pages.length;PH.sel.clear();PH.pick=false;if(back){S.tab='layout';syncTabs()}else syncPhotoSel();return}
+  if(a==='make'){makeSlides(ph());return}
+  if(a==='hero'){const l=ph(),on=!l.every(p=>p.hero);l.forEach(p=>p.hero=on);PH.sel.clear();renderPhotos();scheduleSave();hint(on?'Marked as hero.':'No longer heroes.');return}
+  if(a==='sent'){const fr=S.pf.find(x=>x.id===f),l=ph();l.forEach(p=>{p.sent=[...new Set([...(p.sent||[]),f])]});PH.sel.clear();renderPhotos();scheduleSave();hint(`${l.length} marked as sent to ${fr.name}.`);return}
+  if(a==='sx'){SL.sel.clear();renderSlides();return}
+  const l=sl();SL.sel.clear();
+  if(a==='edit')toBench(l);
+  else if(a==='exp')exportPages(l.filter(pg=>!editing(pg)&&complete(pg)));
+  else if(a==='tv1'||a==='tv0'){markTV(l.filter(pg=>!editing(pg)),a==='tv1');renderSlides()}
+  else if(a==='del')deleteSlides(l);
+}
+function markTV(list,on){list.forEach(pg=>{pg.tv=on;pg.tvSig=on?pageSig(pg):undefined});scheduleSave();hint(on?`${list.length} marked as on the TV.`:`${list.length} marked as not on the TV.`)}
+
+/* ---------- photo detail: swipe between photos, hero, location, frames ---------- */
+function openModal(html){$('psheet').innerHTML=html;$('pmodal').hidden=false}
+function closeModal(){if($('pmodal').hidden)return;$('pmodal').hidden=true;$('psheet').innerHTML='';if(bigUrl){URL.revokeObjectURL(bigUrl);bigUrl=null}}
+$('pmodal').addEventListener('click',e=>{if(e.target.id==='pmodal'){closeModal();if(S.tab==='photos')renderPhotos();if(S.tab==='slides')renderSlides()}});
+let bigUrl=null;
+function placeLine(ph){
+  if(ph.lat==null)return {k:'none',t:'No location in this photo'};
+  const b=placeOfPh(ph),k=poiKey(ph),poi=S.online?POI.get(k):null;
+  if(S.online&&!POI.has(k))return {k:'wait',t:'Looking up…'+(b&&b.name?` ${b.name}`:'')};
+  let town=b&&b.name,cc=b&&b.cc;if(poi&&poi.cc&&(poi.cc!==cc||!town)){town=poi.town||poi.state;cc=poi.cc}
+  const lm=poi?[poi.name,poi.near].filter(Boolean).map(shortName).join(' & '):'';
+  return {k:'ok',t:[lm,[town,cc&&countryCs(cc)].filter(Boolean).join(', ')].filter(Boolean).join(' · ')||'Somewhere'};
+}
+async function openPhoto(id,list){
+  list=list||phList();let i=list.findIndex(p=>p.id===id);if(i<0){list=S.lib;i=list.findIndex(p=>p.id===id)}
+  const ph=list[i];if(!ph)return;const pg=slideOf(id),pl=placeLine(ph);
+  const tvTxt=pg?(editing(pg)?'being edited':pg.tv?(slideState(pg)==='chg'?'on the TV (slide changed since)':'on the TV'):'on a slide, not on the TV yet'):'not on a slide';
+  if(bigUrl){URL.revokeObjectURL(bigUrl);bigUrl=null}
+  openModal(`<div class="pv" id="pv"><img id="pvImg" src="${ph.thumb||''}" alt="">
+      <button class="nav l" id="pPrev" aria-label="Previous photo" ${i>0?'':'hidden'}>${svg('chevL')}</button><button class="nav r" id="pNext" aria-label="Next photo" ${i<list.length-1?'':'hidden'}>${svg('chevR')}</button>
+      <span class="cnt">${i+1} / ${list.length}</span></div>
+    <div class="row"><button class="tgl star" id="pHero" aria-pressed="${!!ph.hero}">${svg('star')}Hero</button><span class="spacer"></span><span class="note">${ph.date?new Date(ph.date).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}):''}</span></div>
+    <div class="geoln ${pl.k}">${svg(pl.k==='none'?'pinx':'pin')}<span>${esc(pl.t)}</span></div>
+    <div class="row"><button class="tgl" disabled aria-pressed="${!!(pg&&pg.tv)}">${svg('tv')}TV · ${tvTxt}</button>${S.pf.map(f=>`<button class="tgl" data-f="${f.id}" aria-pressed="${(ph.sent||[]).includes(f.id)}">${ltr(f)}${esc(f.name)}</button>`).join('')}</div>
+    <div class="row"><button class="tgl" id="pSel" aria-pressed="${PH.sel.has(id)}">${svg('check')}${PH.sel.has(id)?'Selected':'Select'}</button>${pg?`<button class="btn slim" id="pSlide">${svg('slides')}Slide</button>`:''}<span class="spacer"></span><button class="btn slim red" id="pDel">${svg('trash')}Remove</button></div>`);
+  // the larger preview replaces the thumbnail once it is read
+  DB.get('assets',id).then(a=>{if(!a||!a.prevBlob||!$('pvImg'))return;bigUrl=URL.createObjectURL(a.prevBlob);$('pvImg').src=bigUrl}).catch(()=>{});
+  const go=d=>{const q=list[i+d];if(q)openPhoto(q.id,list)};
+  $('pPrev').onclick=()=>go(-1);$('pNext').onclick=()=>go(1);
+  const pv=$('pv');let x0=null;pv.addEventListener('pointerdown',e=>{x0=e.clientX});pv.addEventListener('pointerup',e=>{if(x0==null)return;const dx=e.clientX-x0;x0=null;if(Math.abs(dx)>40)go(dx<0?1:-1)});
+  $('pHero').onclick=()=>{ph.hero=!ph.hero;$('pHero').setAttribute('aria-pressed',ph.hero);scheduleSave();renderPhotos()};
+  $('psheet').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{const f=b.dataset.f,s=new Set(ph.sent||[]);s.has(f)?s.delete(f):s.add(f);ph.sent=[...s];b.setAttribute('aria-pressed',s.has(f));scheduleSave();renderPhotos()});
+  $('pSel').onclick=()=>{PH.sel.has(id)?PH.sel.delete(id):PH.sel.add(id);const on=PH.sel.has(id);$('pSel').setAttribute('aria-pressed',on);$('pSel').lastChild.textContent=on?'Selected':'Select';syncPhotoSel()};
+  if(pg)$('pSlide').onclick=()=>{closeModal();if(editing(pg)){S.active=S.pages.indexOf(pg);S.tab='layout';refresh()}else{S.tab='slides';syncTabs();openSlide(pg)}};
+  $('pDel').onclick=()=>{closeModal();removePhotos([ph])};
+}
+function removePhotos(list){
+  const lib=[...S.lib],pages=S.pages.map(snapPage),done=S.done.map(snapPage),act=S.active,ids=new Set(list.map(p=>p.id));
+  S.lib=S.lib.filter(p=>!ids.has(p.id));list.forEach(p=>PH.sel.delete(p.id));
+  for(const arr of [S.pages,S.done])for(const pg of [...arr]){
+    if(!filled(pg).some(p=>ids.has(p.id)))continue;
+    pg.photos=filled(pg).filter(p=>!ids.has(p.id));if(!pg.photos.length)arr.splice(arr.indexOf(pg),1);else relayout(pg);
+  }
+  refresh();toast(`Removed ${list.length===1?'the photo':list.length+' photos'}.`,()=>{S.lib=lib;S.pages=pages;S.done=done;S.active=act});
+}
+
+/* ---------- Slides tab: check, export, mark what's on the TV, send back to Edit ---------- */
+const CARD=new Map(); // slide id → {key, canvas}: cards are redrawn only when the slide changes
+async function drawSlide(c,pg){
+  const ims=await Promise.all(pg.photos.map(p=>{if(!p)return null;if(p.prev)return p.prev;const im=new Image();im.src=p.thumb;return im.decode().then(()=>im,()=>null)}));
+  const st=stOf(pg);st.photos=pg.photos.map((p,i)=>p&&ims[i]?{...p,prev:ims[i]}:undefined);drawInto(c,st);
+}
+function slidesAll(){return [...S.done,...S.pages].sort((a,b)=>firstDate(a)-firstDate(b))}
+function renderSlides(){
+  const all=slidesAll(),todo=all.filter(pg=>['new','chg'].includes(slideState(pg))&&complete(pg));
+  $('slExport').innerHTML=svg('export')+`Export ${todo.length||''}`;$('slExport').disabled=!todo.length;$('slExport').onclick=()=>exportPages(todo);
+  const nTodo=all.filter(pg=>slideState(pg)!=='on').length;
+  $('slFilters').innerHTML=[['todo','To upload',nTodo],['all','All',all.length]].map(([k,l,n])=>`<button class="chip" data-f="${k}" aria-pressed="${SL.flt===k}">${l} <span class="n">${n}</span></button>`).join('');
+  $('slFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{SL.flt=b.dataset.f;renderSlides()});
+  const list=SL.flt==='todo'?all.filter(pg=>slideState(pg)!=='on'):all,g=$('slGrid');g.innerHTML='';
+  if(!list.length)g.innerHTML=`<p class="note">${all.length?'Everything is on the TV.':'No slides yet. Select photos in Photos and tap Make slides.'}</p>`;
+  for(const pg of list){
+    const st=slideState(pg),b=document.createElement('button');b.className='scard'+(SL.sel.has(pg.id)?' sel':'');b.dataset.id=pg.id;
+    const key=pageSig(pg)+labelFor(pg);let cd=CARD.get(pg.id);
+    if(!cd||cd.key!==key){cd={key,canvas:document.createElement('canvas')};CARD.set(pg.id,cd);b.appendChild(cd.canvas);g.appendChild(b);drawSlide(cd.canvas,pg)}else{b.appendChild(cd.canvas);g.appendChild(b)}
+    b.insertAdjacentHTML('beforeend',`<span class="smeta"><span class="d">${esc(czDate(filled(pg).map(p=>p.date))||'')}</span>${pillHTML(st)}</span>`);
+    holdable(b,()=>{if(SL.sel.size)openSlide(pg);else{SL.sel.add(pg.id);b.classList.add('sel');syncSelbar()}},()=>{
+      if(SL.sel.size){SL.sel.has(pg.id)?SL.sel.delete(pg.id):SL.sel.add(pg.id);b.classList.toggle('sel',SL.sel.has(pg.id));syncSelbar()}else openSlide(pg)});
+  }
+  syncSelbar();
+}
+function openSlide(pg){
+  const st=slideState(pg),ed=editing(pg);
+  openModal(`<div class="pv"><canvas id="slCv" style="width:100%;aspect-ratio:16/9"></canvas></div>
+    <div class="row"><h3 style="flex:1">${esc(czDate(filled(pg).map(p=>p.date))||'Slide')}</h3>${pillHTML(st)}</div>
+    ${ed?'':`<div class="row"><button class="tgl" id="sTv" aria-pressed="${!!pg.tv}">${svg('tv')}On the TV</button></div>
+    <p class="note">${st==='chg'?'Changed since it went on the TV. Export it again and replace it there.':pg.tv?'Removed it from the TV? Switch this off and its photos count as not on the TV again.':'Export it, upload it with SmartThings, then switch this on.'}</p>`}
+    <div class="row"><button class="btn slim primary" id="sEdit">${svg('pen')}${ed?'Open in Edit':'Edit'}</button>${ed?'':`<button class="btn slim" id="sExp">${svg('export')}Export</button>`}<span class="spacer"></span><button class="btn slim red" id="sDel">${svg('trash')}Delete</button></div>`);
+  requestAnimationFrame(()=>{const c=$('slCv');if(c)drawSlide(c,pg)});
+  if(!ed)$('sTv').onclick=()=>{markTV([pg],!pg.tv);openSlide(pg);renderSlides()};
+  $('sEdit').onclick=()=>{closeModal();if(ed){S.active=S.pages.indexOf(pg);S.tab='layout';refresh()}else toBench([pg])};
+  if(!ed)$('sExp').onclick=()=>{closeModal();if(!complete(pg)){hint('Fill every spot in this slide first.');return}exportPages([pg])};
+  $('sDel').onclick=()=>{closeModal();deleteSlides([pg])};
+}
+async function toBench(list){
+  if(!list.length)return;hint('Opening…');
+  for(const pg of list){const i=S.done.indexOf(pg);if(i>=0){S.done.splice(i,1);pg.locked=true;S.pages.push(pg)}for(const p of filled(pg))await ensurePrev(p)}
+  S.pages.sort((a,b)=>firstDate(a)-firstDate(b));S.active=Math.max(0,S.pages.indexOf(list[0]));S.sel=-1;S.tab='layout';hint('');refresh();
+}
+function finishEdit(){
+  const n=S.pages.length;if(!n)return;
+  S.done.push(...S.pages);S.done.sort((a,b)=>firstDate(a)-firstDate(b));S.pages=[];S.sel=-1;ALT=null;
+  const keep=new Set(RV.list?RV.list.map(p=>p.id):[]);S.lib.forEach(p=>{if(!keep.has(p.id))p.prev=null}); // previews are only kept for slides being edited
+  S.tab='slides';SL.flt='todo';refresh();hint(`${n} slide${n===1?'':'s'} in Slides.`);
+}
+function deleteSlides(list){
+  const pages=S.pages.map(snapPage),done=S.done.map(snapPage),act=S.active,ids=new Set(list.map(pg=>pg.id));
+  S.pages=S.pages.filter(pg=>!ids.has(pg.id));S.done=S.done.filter(pg=>!ids.has(pg.id));refresh();
+  toast(`Deleted ${list.length===1?'the slide':list.length+' slides'}; the photos stay in Photos.`,()=>{S.pages=pages;S.done=done;S.active=act});
+}
+
+/* ---------- Settings tab ---------- */
+function renderSettings(){
+  $('frList').innerHTML=S.pf.map(f=>`<div class="frrow"><span class="ltr big" style="background:${f.color}">${esc(f.letter)}</span><span class="t">${esc(f.name)}</span><button data-del="${f.id}">Remove</button></div>`).join('')||'<p class="note">None yet.</p>';
+  $('frList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const id=b.dataset.del,f=S.pf.find(x=>x.id===id),pf=[...S.pf],sent=new Map(S.lib.map(p=>[p,p.sent]));
+    S.pf=S.pf.filter(x=>x.id!==id);S.lib.forEach(p=>{if(p.sent&&p.sent.includes(id))p.sent=p.sent.filter(x=>x!==id)});renderSettings();
+    toast(`${f.name} removed.`,()=>{S.pf=pf;sent.forEach((v,p)=>p.sent=v)})});
+  $('frName').oninput=e=>{$('frLetter').placeholder=(e.target.value.trim()[0]||'B').toUpperCase()};
+}
+$('frAdd').onclick=()=>{const n=$('frName').value.trim();if(!n){$('frName').focus();return}
+  S.pf.push({id:newId(),name:n,letter:($('frLetter').value.trim()||n[0]).toUpperCase(),color:PF_COLORS[S.pf.length%PF_COLORS.length]});
+  $('frName').value='';$('frLetter').value='';renderSettings();saveState();hint(`${n} added.`)};
+$('setRules').onclick=openSheet;
 
 /* ---------- layout tab ---------- */
 function layoutIcon(L){
@@ -1806,7 +2149,7 @@ function renderGroups(){
     wrap.appendChild(row);
   }
 }
-let sugKey='',SUGS=[],SPLIT=null,MERGE=null,ALLS=[],scKey='';
+let sugKey='',SUGS=[],ALLS=[],scKey='';
 function layoutScores(){
   const pg=P(),ph=filled(pg),R=rules(),key=[pg.id,ph.map(p=>p.id).join(','),JSON.stringify(R)].join('|');
   if(key!==scKey){scKey=key;ALLS=suggestionsFor(ph,R)}
@@ -1817,18 +2160,9 @@ function renderSugs(){
   if(!pg){wrap.innerHTML='';sugKey='';return}
   const ph=filled(pg),R=rules();
   const key=[pg.id,ph.map(p=>p.id).join(','),JSON.stringify(R)].join('|');
-  const nbs=[S.active-1,S.active+1].filter(i=>S.pages[i]).map(i=>({i,pg:S.pages[i]}));
-  const mkey=key+'|'+nbs.map(o=>o.pg.id+filled(o.pg).map(p=>p.id).join(',')).join(';');
+  const mkey=key;
   if(mkey!==sugKey){
     sugKey=mkey;layoutScores();SUGS=ALLS.filter((x,i)=>i===0||x.score.minKeep>=.6).slice(0,8);
-    SPLIT=ph.length>=2?bestSplit(ph,R):null;
-    MERGE=null;
-    for(const o of nbs){
-      const m=filled(o.pg);if(ph.length!==1&&m.length!==1)continue;if(ph.length+m.length>MAX)continue;
-      const best=bestPage([...ph,...m].sort((a,b)=>a.date-b.date),R);
-      if(!validPage(best,R))continue;
-      if(!MERGE||best.score.cost<MERGE.best.score.cost)MERGE={best,nbId:o.pg.id,next:o.i>S.active};
-    }
   }
   const curSig=JSON.stringify(pg.cells)+pg.photos.map(p=>p&&p.id).join(',');
   wrap.innerHTML='';
@@ -1842,25 +2176,7 @@ function renderSugs(){
     wrap.appendChild(b);
     drawInto(b.querySelector('canvas'),{L:sg.L,photos:sg.photos.map(p=>({...p,zoom:1,cx:.5,cy:.5})),pad:S.pad,bg:S.bg,frame:S.frame});
   });
-  const fresh=pg=>({L:pg.L,photos:pg.photos.map(p=>({...p,zoom:1,cx:.5,cy:.5})),pad:S.pad,bg:S.bg,frame:S.frame});
-  if(SPLIT){
-    const b=document.createElement('button');b.className='sug';const [a,c]=SPLIT.pages;
-        b.innerHTML=`<canvas></canvas><div class="cap"><b>Split into 2</b></div>`;
-    b.setAttribute('aria-label','Split this image into two');
-    b.onclick=()=>{const at=S.active,snap=snapPage(pg);S.pages.splice(at,1,pageFrom(a,true),pageFrom(c,true));S.sel=-1;refresh();toast('Split into 2 images.',()=>{S.pages.splice(at,2,snap);S.active=at})};
-    wrap.appendChild(b);drawPair(b.querySelector('canvas'),[fresh(a),fresh(c)]);
-  }
-  if(MERGE){
-    const b=document.createElement('button');b.className='sug';const m=MERGE.best;
-    b.innerHTML=`<canvas></canvas><div class="cap"><b>Merge with ${MERGE.next?'next':'previous'}</b></div>`;
-    b.setAttribute('aria-label',`Merge with the ${MERGE.next?'next':'previous'} image`);
-    b.onclick=()=>{
-      const before=S.pages.map(snapPage),act=S.active,nbI=S.pages.findIndex(p=>p.id===MERGE.nbId),lo=Math.min(act,nbI);
-      S.pages.splice(lo,2,pageFrom(m,true));S.active=lo;S.sel=-1;refresh();
-      toast('Merged into one image.',()=>{S.pages=before;S.active=act});
-    };
-    wrap.appendChild(b);drawInto(b.querySelector('canvas'),fresh(m));
-  }
+  // splitting and merging are done by dragging a photo: onto another slide, or between two slides for a new one
 }
 function drawPair(c,sts){
   const dpr=Math.min(window.devicePixelRatio||1,2),w=c.clientWidth||100;
@@ -1901,7 +2217,7 @@ let wallSig='';
 function syncWall(){
   wallWrap.querySelectorAll('.wchip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.w===S.wall.kind));
   depthWrap.hidden=S.wall.kind==='none';depthWrap.querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',b.dataset.d===S.wall.depth));
-  if(S.tab!=='frame'||wallSig===S.bg+S.wall.depth)return;wallSig=S.bg+S.wall.depth; // tiles are built lazily, only once the Frame tab is open
+  if(S.tab!=='layout'||!$('frmBox').open||wallSig===S.bg+S.wall.depth)return;wallSig=S.bg+S.wall.depth; // tiles are built lazily, only once the Frame tab is open
   wallWrap.querySelectorAll('.wchip canvas').forEach(cv=>{const x=cv.getContext('2d'),id=cv.parentNode.dataset.w;
     x.setTransform(1,0,0,1,0,0);x.fillStyle=S.bg;x.fillRect(0,0,44,44);x.setTransform(.16,0,0,.16,0,0);wall(x,{kind:id,depth:S.wall.depth})});
 }
@@ -2047,37 +2363,41 @@ const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catc
 const complete=pg=>pg.cells.every((c,j)=>pg.photos[j]);
 const fname=i=>{const d=new Date(),z=v=>String(v).padStart(2,'0');return `frame-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}-${i+1}.jpg`};
 let READY=null;
-function syncExport(){
-  const n=S.pages.length,ok=S.pages.filter(complete).length;
-  $('bExportOne').disabled=!P();$('bExportAll').disabled=!ok;$('bStartOver').disabled=!n;
-  $('bExportAll').innerHTML=svg('export')+`<span>Export all ${ok} image${ok===1?'':'s'}${ok<n?` (${n-ok} with empty spots skipped)`:''}</span>`;
-  $('bShare').hidden=!READY;if(READY)$('bShare').innerHTML=svg('share')+`<span>Save ${READY.length} image${READY.length>1?'s':''} to Photos</span>`;
-}
 async function exportPages(list){
-  const dl=await dlP,items=[];READY=null;syncExport();
+  if(!list.length){hint('Nothing to export.');return}
+  const dl=await dlP,items=[];READY=null;
   const need=new Set(list.flatMap(pg=>filled(pg).filter(p=>p.lat!=null).map(poiKey))),t0=Date.now();
   while(poiQ.some(k=>need.has(k))&&Date.now()-t0<60000){hint(`Looking up places… ${poiDone}/${poiTotal}`);await tick(500)}
   await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
-    const pg=list[i];items.push({blob:await renderExport(stOf(pg)),name:fname(S.pages.indexOf(pg))});
+    items.push({blob:await renderExport(stOf(list[i])),name:fname(i)});
     if(dl){
       try{await dl.save({filename:items[i].name,data:items[i].blob})}
       catch(err){if(err&&err.code==='declined'){hint('Export cancelled.');return}hint('Saving isn’t available here.');return}
     }
   }
-  if(dl){hint(`Exported ${items.length} image${items.length>1?'s':''}.`);return}
-  READY=items;syncExport();hint('Ready. Tap “Save to Photos” to share them in one go.');
+  hint('');
+  if(dl){askTV(list);return}
+  // sharing needs a fresh tap, so the rendered images wait behind one button
+  READY=items;
+  openModal(`<h3>${items.length} image${items.length>1?'s':''} ready</h3><p class="note">Save them to Photos, then upload them with SmartThings.</p>
+    <div class="btns"><button class="btn primary" id="mSave">${svg('share')}Save ${items.length} image${items.length>1?'s':''} to Photos</button><button class="btn" id="mCancel">Cancel</button></div>`);
+  $('mCancel').onclick=()=>{READY=null;closeModal()};
+  $('mSave').onclick=async()=>{
+    const files=READY.map(it=>new File([it.blob],it.name,{type:'image/jpeg'}));let ok=false;
+    if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});ok=true}catch{}}
+    else{for(const it of READY){const a=document.createElement('a');a.href=URL.createObjectURL(it.blob);a.download=it.name;a.click();await tick(250)}ok=true}
+    if(ok){READY=null;askTV(list)}
+  };
 }
-$('bShare').onclick=async()=>{
-  const items=READY;if(!items)return;const files=items.map(it=>new File([it.blob],it.name,{type:'image/jpeg'}));
-  if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});READY=null}catch{}}
-  else{for(const it of items){const a=document.createElement('a');a.href=URL.createObjectURL(it.blob);a.download=it.name;a.click();await tick(250)}READY=null}
-  syncExport();
-};
-$('bExportOne').onclick=()=>{const pg=P();if(!pg)return;if(!complete(pg)){hint('Fill every spot in this image first.');return}exportPages([pg])};
-$('bExportAll').onclick=()=>exportPages(S.pages.filter(complete));
-$('bStartOver').onclick=()=>{const snap=S.pages,act=S.active;S.pages=[];S.active=0;S.sel=-1;READY=null;refresh();toast('Set cleared.',()=>{S.pages=snap;S.active=act})};
+function askTV(list){
+  openModal(`<h3>Uploaded to the TV?</h3><p class="note">Once they’re on the TV, mark them here so their photos count as on the TV.</p>
+    <div class="btns"><button class="btn primary" id="mTv">${svg('tv')}Mark ${list.length} as on the TV</button><button class="btn" id="mLater">Later</button></div>`);
+  $('mTv').onclick=()=>{markTV(list,true);closeModal();refresh()};$('mLater').onclick=()=>{closeModal();refresh()};
+}
+$('bStartOver').onclick=()=>{const snap={lib:S.lib,done:S.done,pages:S.pages,act:S.active};S.lib=[];S.done=[];S.pages=[];S.active=0;S.sel=-1;PH.sel.clear();READY=null;refresh();
+  toast('Everything deleted.',()=>{S.lib=snap.lib;S.done=snap.done;S.pages=snap.pages;S.active=snap.act})};
 
 $('bReopen').onclick=()=>{const f=$('exportFile');f.value='';f.click()};
 $('exportFile').addEventListener('change',async e=>{
@@ -2096,8 +2416,9 @@ $('exportFile').addEventListener('change',async e=>{
     freeImg(im);
     const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
     const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};if(typeof meta.label==='string')pg.label=meta.label;
-    if(!S.pages.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
-    S.pages.push(pg);S.active=S.pages.length-1;S.sel=-1;refresh();
+    S.lib.push(...photos);S.lib.sort((a,b)=>a.date-b.date);
+    if(!S.pages.length&&!S.done.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
+    S.pages.push(pg);S.active=S.pages.length-1;S.sel=-1;S.tab='layout';refresh();
     hint('Reopened. Pick a new frame and export again.');
   }catch{hint('Couldn’t read that image.')}
 });
@@ -2117,7 +2438,7 @@ function refresh(){
   localStorage_set('restoring','0');
   loadPlaces();
   S.online=localStorage_get('online')!=='0'; // on unless switched off
-  poiLoadCache().then(()=>{poiEnqueue(S.pages.flatMap(filled));S.pages.filter(p=>p.on).forEach(p=>poiEnqueue(filled(p),true));refresh()});
+  poiLoadCache().then(()=>{poiEnqueue(S.lib);[...S.pages,...S.done].filter(p=>p.on).forEach(p=>poiEnqueue(filled(p),true));refresh()});
   document.fonts.load(LFONT(40)).then(render).catch(()=>{});
   refresh();
 })();
