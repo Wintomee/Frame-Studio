@@ -1550,6 +1550,9 @@ function stripTarget(cx,cy){
   const el=document.elementFromPoint(cx,cy),sl=el&&el.closest&&el.closest('.newslot'),th=el&&el.closest&&el.closest('.thumb');
   return sl?{slot:+sl.dataset.at}:th?{pg:th.dataset.pg}:{};
 }
+// once the slots appear, keep the current slide in the middle so both the previous and the next stay in view
+function centerStrip(){const st=$('strip'),cur=st.querySelector('.thumb[aria-current="true"]');if(!cur)return;
+  const r=st.getBoundingClientRect(),c=cur.getBoundingClientRect();st.scrollLeft+=(c.left+c.width/2)-(r.left+r.width/2)}
 // near the strip's ends while dragging, it scrolls by itself so slides off screen can be reached
 let edgeT=0,edgeV=0;
 function stripEdgeScroll(cx,cy){
@@ -1570,7 +1573,7 @@ cv.addEventListener('pointerdown',e=>{
     if(i>=0&&P().photos[i]){
       S.sel=i;syncBar();render();
       const me=G;
-      G.lp=setTimeout(()=>{if(G===me&&!me.moved&&ptrs.size===1){me.swap=true;me.target=me.i;document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(10);showGhost(P().photos[me.i],me.client.x,me.client.y);render()}},380);
+      G.lp=setTimeout(()=>{if(G===me&&!me.moved&&ptrs.size===1){me.swap=true;me.target=me.i;document.body.classList.add('dragging');centerStrip();if(navigator.vibrate)navigator.vibrate(10);showGhost(P().photos[me.i],me.client.x,me.client.y);render()}},380);
     }
   }else if(ptrs.size===2&&G&&!G.gutter&&P().photos[G.i]){
     const [a,b]=[...ptrs.values()];G.pinch={d:dist(a,b)||1,z:P().photos[G.i].zoom};G.moved=true;
