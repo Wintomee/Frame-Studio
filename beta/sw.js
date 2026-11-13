@@ -1,6 +1,6 @@
 // Frame Studio service worker: app shell works offline; photos never leave the device.
 // Bump VERSION whenever index.html (or any shell file) changes so phones pick up the update.
-const VERSION = 'fsb-b7';
+const VERSION = 'fsb-b8';
 const SHELL = ['./', './index.html', '../places.txt', './manifest.webmanifest', '../icons/icon-192.png', '../icons/icon-512.png', '../icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
