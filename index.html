@@ -2181,7 +2181,7 @@ function renderSugs(){
   }
   const curSig=JSON.stringify(pg.cells)+pg.photos.map(p=>p&&p.id).join(',');
   wrap.innerHTML='';wrap.hidden=false;
-  const all=document.createElement('button');all.className='chip';all.textContent='All';all.setAttribute('aria-pressed',!!S.showAll);all.setAttribute('aria-label','All layouts, for any number of photos');
+  const all=document.createElement('button');all.className='chip';all.textContent=SUGS.length>1?'All':'All layouts';all.setAttribute('aria-pressed',!!S.showAll);all.setAttribute('aria-label','All layouts, for any number of photos');
   all.onclick=()=>{S.showAll=!S.showAll;renderGroups();renderSugs()};wrap.appendChild(all);
   (SUGS.length>1?SUGS:[]).forEach(sg=>{ // one option is no choice
     const b=document.createElement('button');b.className='sug';
