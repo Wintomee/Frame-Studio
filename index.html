@@ -1445,19 +1445,33 @@ $('undo').onclick=()=>{const f=undoFn;clearUndo();if(f){f();refresh();hint('Undo
 const snapPage=pg=>({...pg,x:[...pg.x],y:[...pg.y],photos:pg.photos.map(p=>p&&{...p})});
 
 /* ---------- import ---------- */
+// the same photo imported again: same shape, taken within 2 s, and the same picture (16×16 colour signatures);
+// bursts of similar shots are not duplicates
+async function dupOf(ph,pool){
+  const a=ph.w/ph.h,cands=pool.filter(p=>p.date&&ph.date&&Math.abs(p.date-ph.date)<=2000&&Math.abs(Math.log((p.ow??p.w)/(p.oh??p.h)/a))<.015);
+  if(!cands.length)return null;
+  const ga=arrOf(ph.prev,0,0,ph.prev.width,ph.prev.height),sa=sigOf(ga,0,0,ga.w,ga.h);
+  for(const p of cands){const g=p.prev?arrOf(p.prev,0,0,p.prev.width,p.prev.height):await photoArr(p);if(g&&corr(sa,sigOf(g,0,0,g.w,g.h))>.97){delete p._g;return p}delete p._g}
+  return null;
+}
 async function importFiles(files){
   S.importing=true;const news=[];let n=0; // stays on through the review, so its photos aren't purged
+  const dups=[];
   for(const f of files){
     hint(`Loading ${++n} of ${files.length}…`);
-    try{const ph=await loadPhoto(f);ph.id=newId();await putAsset(ph);ph.prev=null;news.push(ph)}catch{} // the preview is decoded again only when it goes on a slide
+    try{const ph=await loadPhoto(f);
+      // already in the collection (or earlier in this batch)? keep the one we have, store nothing new
+      const same=await dupOf(ph,[...S.lib,...news]);if(same){ph.prev=null;dups.push(same);continue}
+      ph.id=newId();await putAsset(ph);ph.prev=null;news.push(ph)}catch{} // the preview is decoded again only when it goes on a slide
   }
   S.importing=false;
-  if(!news.length){hint('Those files couldn’t be opened as images.');return}
+  if(!news.length&&!dups.length){hint('Those files couldn’t be opened as images.');return}
   // straight into the collection, selected: hero and the rest are set there (the review step was dropped)
   poiEnqueue(news,false,true);const have=new Set(S.lib.map(p=>p.id));news.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
   const rc=await replaceCuts(news);
-  if(!PH.pick)PH.sel.clear();news.forEach(p=>{if(!slideOf(p.id))PH.sel.add(p.id)});PH.flt='notv';S.tab='photos';refresh();
-  hint(`${news.length} photo${news.length>1?'s':''} added`+(rc?` · ${rc} matched to slides you added`:'')+'.');
+  if(!PH.pick)PH.sel.clear();[...news,...dups].forEach(p=>{if(!slideOf(p.id))PH.sel.add(p.id)});PH.flt='notv';S.tab='photos';refresh();
+  const nd=new Set(dups.map(p=>p.id)).size;
+  hint([news.length?`${news.length} photo${news.length>1?'s':''} added`:'No new photos',nd?`${nd} already in Photos`:'',rc?`${rc} matched to slides you added`:''].filter(Boolean).join(' · ')+'.');
 }
 /* ---------- review: the batch before arranging (add, remove, mark heroes) ---------- */
 const RV={list:null};
@@ -2249,17 +2263,20 @@ async function bestMatch(target,ar,cands,taken){
   return best&&best.s>.8?best:null;
 }
 async function addSlides(files){
-  let slides=0,found=0,cuts=0,skipped=0;const pool=()=>S.lib.filter(p=>!p.cut);
+  let slides=0,found=0,cuts=0,skipped=0,dup=0;const pool=()=>S.lib; // cut-outs too, so a slide added twice finds its own cut-outs
+  const keyOf=pg=>JSON.stringify(pg.cells)+':'+pg.photos.map(p=>p&&p.id).join(',');
   for(let fi=0;fi<files.length;fi++){
     const file=files[fi];hint(`Reading slide ${fi+1} of ${files.length}…`);
     try{
       const meta=readMeta(await file.arrayBuffer());if(!meta||!meta.rects){skipped++;continue}
-      const im=await imgFrom(file),sx=im.naturalWidth/meta.W,sy=im.naturalHeight/meta.H,photos=[],taken=new Set(); // not twice on one slide
+      // exported by this app from a slide it still has: that's a duplicate (exports carry the slide's id)
+      const known=meta.sid&&[...S.done,...S.pages].find(x=>x.id===meta.sid);if(known){if(!known.tv&&!editing(known)){known.tv=true;known.tvSig=pageSig(known)}dup++;continue}
+      let fnd=0;const im=await imgFrom(file),sx=im.naturalWidth/meta.W,sy=im.naturalHeight/meta.H,photos=[],taken=new Set(); // not twice on one slide
       if(!S.lib.length&&!S.done.length&&!S.pages.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
       for(const r of meta.rects){
         const g=arrOf(im,r.x*sx,r.y*sy,r.w*sx,r.h*sy),target=sigOf(g,0,0,g.w,g.h),ar=r.w/r.h;
         const m=await bestMatch(target,ar,pool(),taken);
-        if(m){taken.add(m.p.id);photos.push(placeOf(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy}));found++;continue}
+        if(m){taken.add(m.p.id);photos.push(placeOf(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy}));fnd++;continue}
         // no original in the collection: the cut-out itself becomes the photo, until the original turns up
         const c=document.createElement('canvas');c.width=Math.round(r.w*sx);c.height=Math.round(r.h*sy);c.getContext('2d').drawImage(im,r.x*sx,r.y*sy,r.w*sx,r.h*sy,0,0,c.width,c.height);
         const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',.95));
@@ -2270,12 +2287,14 @@ async function addSlides(files){
       const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
       const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};
       if(typeof meta.label==='string')pg.label=meta.label;
-      pg.tv=true;pg.tvSig=pageSig(pg);S.done.push(pg);slides++; // it came from the TV's slides, so it's on the TV
+      const twin=[...S.done,...S.pages].find(x=>keyOf(x)===keyOf(pg)); // same layout with the same photos: already here
+      if(twin){if(!twin.tv&&!editing(twin)){twin.tv=true;twin.tvSig=pageSig(twin)}dup++;continue}
+      pg.tv=true;pg.tvSig=pageSig(pg);S.done.push(pg);slides++;found+=fnd; // it came from the TV's slides, so it's on the TV
     }catch(e){console.error(e);skipped++}
   }
   S.lib.sort((a,b)=>a.date-b.date);S.done.sort((a,b)=>firstDate(a)-firstDate(b));S.lib.forEach(p=>delete p._g);
   SL.flt='all';S.tab='slides';refresh();
-  hint([`${slides} slide${slides===1?'':'s'} added`,found?`${found} photo${found===1?'':'s'} found`:'',cuts?`${cuts} not in Photos yet`:'',skipped?`${skipped} without layout info, skipped`:''].filter(Boolean).join(' · ')+'.');
+  hint([slides?`${slides} slide${slides===1?'':'s'} added`:'No new slides',dup?`${dup} already in Slides`:'',found?`${found} photo${found===1?'':'s'} found`:'',cuts?`${cuts} not in Photos yet`:'',skipped?`${skipped} without layout info, skipped`:''].filter(Boolean).join(' · ')+'.');
 }
 // newly imported photos replace cut-outs they match
 async function replaceCuts(news){
@@ -2539,14 +2558,14 @@ function readMeta(buf){
   if(!m)return null;try{return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(m[1]),c=>c.charCodeAt(0))))}catch{return null}
 }
 
-async function renderExport(st){
+async function renderExport(st,sid){
   const c=document.createElement('canvas');c.width=W;c.height=H;
   const x=c.getContext('2d');x.imageSmoothingQuality='high';drawBase(x,st);
   const rs=rectsOf(st.L,st.pad,insOf(st.frame));
   for(let i=0;i<rs.length;i++){const ph=st.photos[i];const img=await fullOf(ph);drawPhoto(x,ph,img,rs[i]);freeImg(img)}
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));c.width=c.height=1;
   return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,wall:st.wall,label:st.label,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs,
-    photos:st.photos.map(p=>p&&{date:p.date,zoom:p.zoom,cx:p.cx,cy:p.cy})});
+    photos:st.photos.map(p=>p&&{date:p.date,zoom:p.zoom,cx:p.cx,cy:p.cy}),sid});
 }
 const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
 const complete=pg=>pg.cells.every((c,j)=>pg.photos[j]);
@@ -2560,7 +2579,7 @@ async function exportPages(list){
   await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
-    items.push({blob:await renderExport(stOf(list[i])),name:fname(i)});
+    items.push({blob:await renderExport(stOf(list[i]),list[i].id),name:fname(i)});
     if(dl){
       try{await dl.save({filename:items[i].name,data:items[i].blob})}
       catch(err){if(err&&err.code==='declined'){hint('Export cancelled.');return}hint('Saving isn’t available here.');return}

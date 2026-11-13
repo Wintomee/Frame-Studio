@@ -285,6 +285,11 @@ Settings (icon only).
   TV state. Tested with generated textured photos incl. near-duplicate pairs: 20/20 right, both orders. Exports now
   also store each photo's date/zoom/pan (`photos` in the metadata) for later use. Exports without metadata (other
   apps, or if iOS stripped it) are skipped and counted in the message.
+- **Duplicates**: a photo imported again (`dupOf`: same shape, taken within 2 s, 16×16 signatures correlate above .97)
+  isn't stored again; the one already there gets selected and the message says "N already in Photos". Similar burst
+  shots stay separate (tested: a 4 % shifted, brighter copy was kept). A slide added again is skipped (and marked on the
+  TV if it wasn't): exports now carry the slide's id (`sid`); older ones are compared by layout + matched photos (cut-outs
+  take part in matching so a slide added twice finds its own).
 - **Share** (selection bar and photo detail, `sharePhotos`): the iPhone share sheet with the photos' 4K copies, so
   they go straight to Frameo, AirDrop or Messages (user's idea: send the photos a frame is missing). Afterwards one tap
   marks them as sent to a photo frame. Shared copies of photos over 3840 px lack the original EXIF (date, GPS), since
