@@ -203,6 +203,7 @@ nav.tabbar button[aria-selected="true"]::after{content:"";position:absolute;left
 nav.tabbar button{flex:1;background:none;border:0;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:9px 0;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 nav.tabbar button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ghost.aim{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent),0 8px 24px rgba(0,0,0,.4)}
 .ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:40;display:none;border:2px solid #fff;border-radius:3px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:20px}
 .modal[hidden]{display:none}
@@ -284,9 +285,9 @@ body.dragging .newslot{flex-basis:46px;opacity:.7;margin:0}
 body.dragging .newslot.drop{opacity:1;background:var(--accent);color:var(--accent-text);border-style:solid;transform:scale(1.15);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}
 .newslot.drop svg{stroke-width:3}
 nav.tabbar button.ico{flex:0 0 52px}
-.sugs{background:color-mix(in srgb,var(--text) 6%,var(--bg));border-radius:10px;padding:6px;align-items:center;gap:6px}
-.sugs .sugico{flex:none;width:22px;display:grid;place-items:center;color:var(--muted)}.sugs .sugico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
-.sugs .sug{flex:0 0 96px;border:2px solid transparent;border-radius:6px;padding:2px}.sugs .sug[aria-pressed="true"]{border-color:var(--accent)}
+.sugs{background:color-mix(in srgb,var(--text) 13%,var(--bg));border-radius:12px;padding:8px;align-items:center;gap:8px}
+.sugs .chip{flex:none;background:var(--bg)}
+.sugs .sug{flex:0 0 132px;border:2px solid transparent;border-radius:6px;padding:2px}.sugs .sug[aria-pressed="true"]{border-color:var(--accent)}
 .sugs .sug canvas{border-radius:2px}
 </style>
 </head>
@@ -1133,9 +1134,13 @@ const poiQueued=new Set(); // asked this session (incl. rejected ones), so a rej
 function poiLoadCache(){return DB.get('kv','poi').then(o=>{if(o)for(const k in o)if(o[k]&&o[k].v===3)POI.set(k,o[k])}).catch(()=>{})} // older answers lack country/state: ask again
 function poiSaveCache(now){clearTimeout(poiSaveT);poiSaveT=setTimeout(()=>DB.put('kv','poi',Object.fromEntries(POI)).catch(()=>{}),now?0:1500)}
 addEventListener('pagehide',()=>{if(poiSaveT)poiSaveCache(true)});
-function poiEnqueue(photos,force){
+// front = newly added photos jump the queue; within a batch, photos abroad go first (those labels need landmarks most)
+function poiEnqueue(photos,force,front){
   if(!S.online&&!force)return;
-  for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);poiQ.push(k);poiTotal++}
+  const add=[];
+  for(const ph of photos){if(!ph||ph.lat==null)continue;const k=poiKey(ph);if(POI.has(k)||poiQueued.has(k))continue;poiQueued.add(k);add.push({k,cz:(placeOfPh(ph)||{}).cc==='CZ'});poiTotal++}
+  add.sort((a,b)=>a.cz-b.cz);const keys=add.map(a=>a.k);
+  if(front){const near=poiQ.filter(k=>k.startsWith('near:'));poiQ=[...near,...keys,...poiQ.filter(k=>!k.startsWith('near:'))]}else poiQ.push(...keys);
   syncPoiBadge();poiRun();
 }
 // on demand only: see poiNearUrl; failure = {ovFail: reason}
@@ -1440,7 +1445,7 @@ async function importFiles(files){
   S.importing=false;
   if(!news.length){hint('Those files couldn’t be opened as images.');return}
   // straight into the collection, selected: hero and the rest are set there (the review step was dropped)
-  poiEnqueue(news);const have=new Set(S.lib.map(p=>p.id));news.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
+  poiEnqueue(news,false,true);const have=new Set(S.lib.map(p=>p.id));news.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
   if(!PH.pick)PH.sel.clear();news.forEach(p=>PH.sel.add(p.id));PH.flt='notv';S.tab='photos';refresh();
   hint(`${news.length} photo${news.length>1?'s':''} added.`);
 }
@@ -1562,7 +1567,7 @@ cv.addEventListener('pointermove',e=>{
     const el=document.elementFromPoint(e.clientX,e.clientY),th=el&&el.closest&&el.closest('.thumb'),sl=el&&el.closest&&el.closest('.newslot');
     G.dropPg=th&&th.dataset.pg!==P().id?th.dataset.pg:null;setDrop(G.dropPg);
     const ns=sl?+sl.dataset.at:null;if(ns!==G.slot&&ns!=null&&navigator.vibrate)navigator.vibrate(8); // a tick when a new-slide spot lights up
-    G.slot=ns;document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',x===sl));
+    G.slot=ns;document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',x===sl));ghost.classList.toggle('aim',!!(sl||G.dropPg));
     G.target=G.dropPg||sl?-1:hit(p);render();return;
   }
   if(dist(p,G.start)>8*S.k)G.moved=true;
@@ -1588,7 +1593,7 @@ function endPtr(e){
   clearTimeout(G.lp);
   const pg=P();
   if(G.swap){
-    ghost.style.display='none';setDrop(null);document.body.classList.remove('dragging');document.querySelectorAll('.newslot.drop').forEach(x=>x.classList.remove('drop'));
+    ghost.style.display='none';ghost.classList.remove('aim');setDrop(null);document.body.classList.remove('dragging');document.querySelectorAll('.newslot.drop').forEach(x=>x.classList.remove('drop'));
     if(e.type==='pointerup'){
       if(G.dropPg){movePhoto(G.i,G.dropPg);G=null;return}
       if(G.slot!=null){newSlideWith(G.i,G.slot);G=null;return}
@@ -1898,8 +1903,7 @@ function renderStrip(){
   S.pages.forEach((pg,i)=>{
     const b=document.createElement('button');b.className='thumb';b.dataset.pg=pg.id;b.setAttribute('aria-current',i===S.active);
     b.setAttribute('aria-label',`Image ${i+1}${pg.locked?', locked':''}`);
-    const gs=geoState(pg);
-    b.innerHTML=`<canvas></canvas>${gs?`<span class="pst ${gs}" aria-hidden="true">${svg(gs==='none'?'pinx':'pin')}</span>`:''}${i===S.active?`<span class="del" role="button" aria-label="Delete this image">${svg('remove')}</span>`:''}`;
+    b.innerHTML=`<canvas></canvas>${i===S.active?`<span class="del" role="button" aria-label="Delete this image">${svg('remove')}</span>`:''}`;
     const del=b.querySelector('.del');if(del)del.onclick=e=>{e.stopPropagation();$('bDelPage').onclick()};
     b.onclick=()=>{if(S.active===i)return;S.active=i;S.sel=-1;refresh()};
     wrap.appendChild(b);drawInto(b.querySelector('canvas'),stOf(pg));slot(i+1);
@@ -2142,7 +2146,7 @@ function layoutIcon(L){
 
 function renderGroups(){
   const pg=P(),wrap=$('groups');wrap.innerHTML='';
-  if(!pg)return;
+  if(!pg||!S.showAll)return; // the icon rows only show after "All" in the layouts row
   const n=filled(pg).length,all=S.showAll,sig=JSON.stringify(pg.cells),sc=layoutScores(),R=rules();
   for(let g=1;g<=MAX;g++){
     if(!all&&g!==n)continue;
@@ -2156,7 +2160,6 @@ function renderGroups(){
       b.setAttribute('aria-label',`${g} photo layout${bad?', not recommended for these photos':''}`);b.setAttribute('aria-pressed',JSON.stringify(L.cells)===sig);
       b.disabled=g<n;b.onclick=()=>applyLayout(L);row.appendChild(b);
     });
-    if(!wrap.children.length){const t=document.createElement('button');t.className='chip';t.textContent=all?'Fewer':'All';t.setAttribute('aria-pressed',all);t.onclick=()=>{S.showAll=!S.showAll;renderGroups()};row.prepend(t)}
     wrap.appendChild(row);
   }
 }
@@ -2177,9 +2180,10 @@ function renderSugs(){
     sugKey=mkey;layoutScores();SUGS=ALLS.filter((x,i)=>i===0||x.score.minKeep>=.6).slice(0,8);
   }
   const curSig=JSON.stringify(pg.cells)+pg.photos.map(p=>p&&p.id).join(',');
-  wrap.innerHTML='';wrap.hidden=SUGS.length<2; // one option is no choice
-  wrap.insertAdjacentHTML('beforeend',`<span class="sugico" title="Other layouts for this slide">${svg('shuffle')}</span>`);
-  SUGS.forEach(sg=>{
+  wrap.innerHTML='';wrap.hidden=false;
+  const all=document.createElement('button');all.className='chip';all.textContent='All';all.setAttribute('aria-pressed',!!S.showAll);all.setAttribute('aria-label','All layouts, for any number of photos');
+  all.onclick=()=>{S.showAll=!S.showAll;renderGroups();renderSugs()};wrap.appendChild(all);
+  (SUGS.length>1?SUGS:[]).forEach(sg=>{ // one option is no choice
     const b=document.createElement('button');b.className='sug';
     b.setAttribute('aria-pressed',JSON.stringify(sg.def.cells)+sg.photos.map(p=>p.id).join(',')===curSig);
     const sm=sg.score.minArea,kp=sg.score.minKeep;
@@ -2452,7 +2456,7 @@ function refresh(){
   localStorage_set('restoring','0');
   loadPlaces();
   S.online=localStorage_get('online')!=='0'; // on unless switched off
-  poiLoadCache().then(()=>{poiEnqueue(S.lib);[...S.pages,...S.done].filter(p=>p.on).forEach(p=>poiEnqueue(filled(p),true));refresh()});
+  poiLoadCache().then(()=>{poiEnqueue([...S.lib].reverse());[...S.pages,...S.done].filter(p=>p.on).forEach(p=>poiEnqueue(filled(p),true));refresh()});
   document.fonts.load(LFONT(40)).then(render).catch(()=>{});
   refresh();
 })();

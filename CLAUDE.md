@@ -182,7 +182,8 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   and only scrolls to the active image when the selection changes (`stripAt`). The queue (`poiQ`,
   `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
   1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
-  coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
+  coordinates rounded to 3 decimals (~100 m) are sent; newly imported photos jump the queue and, within a batch,
+  photos outside Czechia go first (`poiEnqueue(…, front)`), so landmarks are usually ready by the time they reach Edit; and answers are cached in IndexedDB `kv.poi` (a rejected query
   is not cached and shows one message). Progress is a thin bar right above the tab bar with a pin and "3/17" at the far
   left (`#poiBadge`; it first sat on the preview, which hid photos). Filmstrip thumbnails show a pin in the bottom-right
   corner, no backdrop, mostly outside the picture (`geoState`: crossed = no GPS, nothing = lookups off, dark red =
@@ -252,10 +253,12 @@ Settings (icon only).
   wall, padding; it applies to all slides, so usually skipped). "Split into 2" and "Merge" suggestions were dropped
   (user's request): dragging a photo onto another slide merges, and while dragging, dashed **new-slide slots** appear
   between the filmstrip thumbnails (`.newslot`, `body.dragging`, `newSlideWith`); the one under the finger lights up
-  solid accent with a vibration tick, without changing size (so the target doesn't move).
-  The layout-alternatives row stays (user's choice) but without the min/keeps captions, hidden when there's only one
-  option, and drawn as bare photos on a plain ground in a tinted panel with a shuffle icon, so it isn't mistaken for
-  the filmstrip.
+  solid accent without changing size (so the target doesn't move), and the dragged photo (`ghost.aim`) gets an accent
+  ring too. iOS Safari has no vibration API, so there is no haptic tick there.
+  **Layouts**: one row only (user's request): an "All" chip plus the photo-preview alternatives for the current photo
+  count (no min/keeps captions, cards hidden when there's only one). The old icon rows (`renderGroups`) show only after
+  All. The row is a strongly tinted panel with 132 px cards drawn as bare photos on a plain ground, so it isn't
+  mistaken for the filmstrip (smaller cards looked even more like it). No location pins on Edit filmstrip thumbnails.
 - **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
   To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
   toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded
