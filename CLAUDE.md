@@ -223,7 +223,7 @@ Per-photo `crop` {x,y,w,h} (0..1 of the original). `ow`/`oh` are the original pi
 **effective (cropped)** dimensions used everywhere, including the solver, the upscale check and drawing. After a crop
 the page is re-fitted, and if it becomes invalid the cheapest `buildAlts` option is applied automatically.
 
-### Collection model (branch `collection`, served as the beta at /beta/)
+### Collection model (live since the `collection` branch was merged; built and tested as a beta at /beta/ first)
 The user's real process: keep a collection of good photos, then make slides from a few at a time, and know which photos
 are already on the TV (his wife adds photos too) or sent to the grandparents' frames. Prototyped with him first
 (artifact "Frame Studio Prototype"). Four tabs: **Photos** · **Edit** (only while slides are being edited) · **Slides** ·
@@ -288,10 +288,12 @@ Settings (icon only).
   sizes stay a later step.
 - **Storage**: import keeps a 4K copy (long edge 3840, JPEG .92) instead of the original (user chose bigger copies over
   previews only; a web app can't keep references into the iOS photo library). Assets: `file`, `prevBlob`, `thumbBlob`.
-- **Beta deploy**: `node tools/build-beta.cjs <branch index.html> <version>` writes `beta/` (own IndexedDB
+- **Beta deploy** (for the next big change): `node tools/build-beta.cjs <branch index.html> <version>` writes `beta/` (own IndexedDB
   `frame-studio-beta`, `fsb-` localStorage keys, own service worker and cache `fsb-…`, shares `../places.txt` and icons).
   The main worker ignores `/beta/` and each worker only deletes its own old caches. Commit `beta/` on main; the main app
-  itself is unchanged until the branch is merged.
+  itself is unchanged until the branch is merged. The beta keeps its own data; nothing moves between beta and live.
+- **Migration** of a live v2 set was tested with the old and new `index.html` on one origin: slides, photos, custom
+  label, pan/zoom and hero carried over; every old image becomes a slide marked "Not on TV" (mark them in Slides).
 
 ### Persistence
 IndexedDB `frame-studio-v2` with stores `assets` (4K copy, ~1000px `prevBlob`, ~400px `thumbBlob`, dims, date, GPS) and
@@ -306,10 +308,9 @@ Pages auto-lock when edited by hand, and recompose skips locked pages. The lock 
 sure it's needed; the code is kept for now. Decide with him before removing or exposing it.
 
 ## UI decisions already made (don't undo without asking)
-- **Import goes through a review step first** (user's request): a full-screen grid of the new batch (`openReview`,
-  `RV.list`, scrolling in `.rvscroll`: with the grid itself as the flex scroller, iOS squashed the rows) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Add N photos" puts
-  them in the collection and leaves them selected, so Make slides is one tap. Cancel drops only the new batch.
-  `S.importing` stays on during the review so its assets aren't purged. Rules are not a tab (Settings opens the sheet).
+- **Import has no review step any more** (the user dropped it once the Photos tab existed): photos go straight into the
+  collection, selected. The review screen code (`openReview`, `RV`) is still in the file but unused. Rules are not a
+  tab (Settings opens the sheet).
 - Tabs: see the collection model above (Edit is the only place editing gestures work). The tab bar is compact (icon and label inline, reduced bottom safe area). The user wanted tabs that look
   physical: the bar is a darker strip and the selected tab hangs from the page (page colour, side borders, rounded
   bottom, shadow, accent underline); the first tinted-tab attempt wasn't enough.
