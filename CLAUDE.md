@@ -271,6 +271,10 @@ Settings (icon only).
   TV state. Tested with generated textured photos incl. near-duplicate pairs: 20/20 right, both orders. Exports now
   also store each photo's date/zoom/pan (`photos` in the metadata) for later use. Exports without metadata (other
   apps, or if iOS stripped it) are skipped and counted in the message.
+- **Share** (selection bar and photo detail, `sharePhotos`): the iPhone share sheet with the photos' 4K copies, so
+  they go straight to Frameo, AirDrop or Messages (user's idea: send the photos a frame is missing). Afterwards one tap
+  marks them as sent to a photo frame. Shared copies of photos over 3840 px lack the original EXIF (date, GPS), since
+  the 4K copy is re-encoded.
 - **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
   online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
   sizes stay a later step.
