@@ -240,9 +240,14 @@ Settings (icon only).
   style, not the computed label, which changes while places load). A photo counts as on the TV when its slide is.
 - **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on TV
   (default) / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
-  bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). **Hold** starts
-  selecting; in select mode tap toggles and hold opens the detail; selecting only toggles classes (`syncPhotoSel`) so
-  the grid keeps its scroll. Bar: Make slides, ★, "Sent" per frame. Detail sheet: swipe/arrows through the filtered
+  bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). Gestures are one
+  delegated handler on the grid (`gridGestures`, `GS`), modelled on the iPhone Photos app: **hold** starts selecting; in
+  select mode tap toggles and hold opens the detail; a **sideways swipe** in select mode selects every photo between
+  the start and the one under the finger in grid order (rows included; starting on a selected photo deselects; the
+  page scrolls at the screen edges); a hold can turn into that swipe without lifting the finger. Vertical swipes scroll
+  (`touch-action:pan-y` on tiles, `touchmove` prevented only while range-selecting). Selecting only toggles classes
+  (`syncPhotoSel`) so the grid keeps its scroll. Bar: All/None (within the current filter), Make slides, share, ★,
+  "Sent" per frame. Detail sheet: swipe/arrows through the filtered
   list, hero, date, location text (no coordinates; lookups start at import), TV state, frame toggles, Select (keeps
   the sheet open), Slide, red Remove.
 - **Import** goes straight into the collection with the new photos selected (the review step was dropped: hero etc.
