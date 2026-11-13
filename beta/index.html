@@ -1999,7 +1999,7 @@ function syncSelbar(){
   if(S.tab==='photos'&&(PH.sel.size||PH.pick)){
     const n=PH.sel.size;
     html=PH.pick?`<button class="ib" data-a="x" aria-label="Cancel">${svg('remove')}</button><span class="cnt">${n?n+' selected':'Tap photos to add'}</span><span class="spacer"></span><button class="btn primary" data-a="make" ${n?'':'disabled'}>${svg('slides')}Add to Edit</button>`
-      :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span><span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}${S.pages.length?'Add to Edit':'Make slides'}</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
+      :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span><span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}${S.pages.length?'Add to Edit':'Make slides'}</button><button class="btn" data-a="share" aria-label="Share">${svg('share')}</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
         S.pf.map(f=>`<button class="btn" data-a="sent" data-f="${f.id}">${ltr(f)}Sent</button>`).join('');
   }else if(S.tab==='slides'&&SL.sel.size){
     html=`<button class="ib" data-a="sx" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${SL.sel.size}</span><span class="spacer"></span><button class="btn primary" data-a="edit">${svg('pen')}Edit</button><button class="btn" data-a="exp">${svg('export')}</button><button class="btn" data-a="tv1">${svg('tv')}On TV</button><button class="btn" data-a="tv0">Off TV</button><button class="btn danger" data-a="del">${svg('trash')}</button>`;
@@ -2011,6 +2011,7 @@ function selAction(a,f){
   const ph=()=>S.lib.filter(p=>PH.sel.has(p.id)),sl=()=>[...S.done,...S.pages].filter(pg=>SL.sel.has(pg.id));
   if(a==='x'){const back=PH.pick&&S.pages.length;PH.sel.clear();PH.pick=false;if(back){S.tab='layout';syncTabs()}else syncPhotoSel();return}
   if(a==='make'){makeSlides(ph());return}
+  if(a==='share'){sharePhotos(ph());return}
   if(a==='hero'){const l=ph(),on=!l.every(p=>p.hero);l.forEach(p=>p.hero=on);PH.sel.clear();renderPhotos();scheduleSave();hint(on?'Marked as hero.':'No longer heroes.');return}
   if(a==='sent'){const fr=S.pf.find(x=>x.id===f),l=ph();l.forEach(p=>{p.sent=[...new Set([...(p.sent||[]),f])]});PH.sel.clear();renderPhotos();scheduleSave();hint(`${l.length} marked as sent to ${fr.name}.`);return}
   if(a==='sx'){SL.sel.clear();renderSlides();return}
@@ -2046,7 +2047,7 @@ async function openPhoto(id,list){
     <div class="row"><button class="tgl star" id="pHero" aria-pressed="${!!ph.hero}">${svg('star')}Hero</button><span class="spacer"></span><span class="note">${ph.date?new Date(ph.date).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}):''}</span></div>
     <div class="geoln ${pl.k}">${svg(pl.k==='none'?'pinx':'pin')}<span>${esc(pl.t)}</span></div>
     <div class="row"><button class="tgl" disabled aria-pressed="${!!(pg&&pg.tv)}">${svg('tv')}TV · ${tvTxt}</button>${S.pf.map(f=>`<button class="tgl" data-f="${f.id}" aria-pressed="${(ph.sent||[]).includes(f.id)}">${ltr(f)}${esc(f.name)}</button>`).join('')}</div>
-    <div class="row"><button class="tgl" id="pSel" aria-pressed="${PH.sel.has(id)}">${svg('check')}${PH.sel.has(id)?'Selected':'Select'}</button>${pg?`<button class="btn slim" id="pSlide">${svg('slides')}Slide</button>`:''}<span class="spacer"></span><button class="btn slim red" id="pDel">${svg('trash')}Remove</button></div>`);
+    <div class="row"><button class="tgl" id="pSel" aria-pressed="${PH.sel.has(id)}">${svg('check')}${PH.sel.has(id)?'Selected':'Select'}</button>${pg?`<button class="btn slim" id="pSlide">${svg('slides')}Slide</button>`:''}<button class="btn slim" id="pShare" aria-label="Share">${svg('share')}</button><span class="spacer"></span><button class="btn slim red" id="pDel">${svg('trash')}Remove</button></div>`);
   // the larger preview replaces the thumbnail once it is read
   DB.get('assets',id).then(a=>{if(!a||!a.prevBlob||!$('pvImg'))return;bigUrl=URL.createObjectURL(a.prevBlob);$('pvImg').src=bigUrl}).catch(()=>{});
   const go=d=>{const q=list[i+d];if(q)openPhoto(q.id,list)};
@@ -2057,6 +2058,21 @@ async function openPhoto(id,list){
   $('pSel').onclick=()=>{PH.sel.has(id)?PH.sel.delete(id):PH.sel.add(id);const on=PH.sel.has(id);$('pSel').setAttribute('aria-pressed',on);$('pSel').lastChild.textContent=on?'Selected':'Select';syncPhotoSel()};
   if(pg)$('pSlide').onclick=()=>{closeModal();if(editing(pg)){S.active=S.pages.indexOf(pg);S.tab='layout';refresh()}else{S.tab='slides';syncTabs();openSlide(pg)}};
   $('pDel').onclick=()=>{closeModal();removePhotos([ph])};
+  $('pShare').onclick=()=>sharePhotos([ph]);
+}
+// the iPhone share sheet with the photos' 4K copies (Frameo, AirDrop, Messages…); share() has to run straight from the tap
+async function sharePhotos(list){
+  if(!list.length)return;
+  const z=v=>String(v).padStart(2,'0'),nm=(p,i)=>{const d=new Date(p.date||Date.now());return `photo-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}-${i+1}.jpg`};
+  const files=list.map((p,i)=>new File([p.file],nm(p,i),{type:p.file.type||'image/jpeg'}));
+  if(!(navigator.canShare&&navigator.canShare({files}))){hint('Sharing isn’t available here.');return}
+  try{await navigator.share({files})}catch(e){if(e&&e.name==='AbortError')return;hint('Couldn’t share them.');return}
+  if(!S.pf.length)return;
+  // then one tap marks them as sent to a photo frame
+  openModal(`<h3>Sent to a frame?</h3><div class="btns">${S.pf.map(f=>`<button class="btn" data-f="${f.id}">${ltr(f)}${esc(f.name)}</button>`).join('')}<button class="btn" id="mNo">No</button></div>`);
+  $('mNo').onclick=closeModal;
+  $('psheet').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{const f=b.dataset.f;list.forEach(p=>{p.sent=[...new Set([...(p.sent||[]),f])]});
+    closeModal();PH.sel.clear();renderPhotos();scheduleSave();hint(`${list.length} marked as sent to ${S.pf.find(x=>x.id===f).name}.`)});
 }
 function removePhotos(list){
   const lib=[...S.lib],pages=S.pages.map(snapPage),done=S.done.map(snapPage),act=S.active,ids=new Set(list.map(p=>p.id));
