@@ -241,7 +241,7 @@ Settings (icon only).
 - **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on TV
   (default) / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
   bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). Gestures are one
-  delegated handler on the grid (`gridGestures`, `GS`), modelled on the iPhone Photos app: **hold** starts selecting; in
+  delegated handler per grid (`gridSelect`, shared with Slides), modelled on the iPhone Photos app: **hold** starts selecting; in
   select mode tap toggles and hold opens the detail; a **sideways swipe** in select mode selects every photo between
   the start and the one under the finger in grid order (rows included; starting on a selected photo deselects; the
   page scrolls at the screen edges); a hold can turn into that swipe without lifting the finger. Vertical swipes scroll
@@ -273,7 +273,8 @@ Settings (icon only).
   All. The row is a strongly tinted panel with 132 px cards drawn as bare photos on a plain ground, so it isn't
   mistaken for the filmstrip (smaller cards looked even more like it). No location pins on Edit filmstrip thumbnails.
 - **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
-  To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
+  To upload / All, Export N (new + changed). Selecting works like Photos (the same `gridSelect` handler: hold, tap,
+  sideways swipe, All/None within the filter); the bar has Edit / Export / On TV / Off TV / Delete. Detail: On the TV
   toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded
   to the TV?" → `markTV`.
 - **Add existing slides** (`+` on the Slides tab, `addSlides`): Frame Studio exports carry their rects in the XMP, so

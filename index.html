@@ -240,7 +240,7 @@ body:not(.t-layout) header.top{display:none}
 .bigadd svg{width:36px;height:36px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 @media (min-width:640px){.sgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-.scard{min-width:0;border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;display:grid;gap:5px;-webkit-touch-callout:none}
+.scard{touch-action:pan-y;min-width:0;border:0;padding:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;display:grid;gap:5px;-webkit-touch-callout:none}
 .scard canvas{width:100%;aspect-ratio:16/9;display:block;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.25);pointer-events:none}
 .scard.sel canvas{outline:3px solid var(--accent);outline-offset:2px}
 .smeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;min-width:0}
@@ -2020,45 +2020,48 @@ function syncPhotoSel(){
    mode: opens), and in select mode a sideways swipe selects every photo between the first one and the one under the
    finger, row by row, scrolling at the screen's edges. Starting on a selected photo deselects instead. A hold can turn
    straight into a swipe without lifting the finger. A vertical swipe scrolls as usual. */
-const GS={on:false};
-const selMode=()=>PH.sel.size>0||PH.pick;
-function tileAt(x,y){const el=document.elementFromPoint(x,y);return el&&el.closest?el.closest('#phGrid .ptile'):null}
-function tapTile(id){if(selMode()){PH.sel.has(id)?PH.sel.delete(id):PH.sel.add(id);syncPhotoSel()}else openPhoto(id)}
-function startRange(){
-  const held=GS.mode==='held';GS.mode='range';GS.base=new Set(PH.sel);GS.add=held||!PH.sel.has(GS.id);GS.cur=GS.start;
-  clearInterval(GS.scrollT);GS.scrollT=setInterval(()=>{const v=GS.y<90?-14:GS.y>innerHeight-150?14:0;if(v){scrollBy(0,v);updateRange()}},30);
-}
-function updateRange(){
-  const t=tileAt(GS.x,GS.y);if(t){const i=GS.tiles.indexOf(t);if(i>=0)GS.cur=i}
-  const a=Math.min(GS.start,GS.cur),b=Math.max(GS.start,GS.cur);PH.sel=new Set(GS.base);
-  for(let i=a;i<=b;i++){const id=GS.tiles[i].dataset.id;GS.add?PH.sel.add(id):PH.sel.delete(id)}
-  syncPhotoSel();
-}
-function endGesture(e){
-  if(!GS.on)return;GS.on=false;clearTimeout(GS.hold);clearInterval(GS.scrollT);
-  if(!GS.mode&&e.type==='pointerup')tapTile(GS.id);
-}
-(function gridGestures(){
-  const g=$('phGrid');
-  g.addEventListener('pointerdown',e=>{
-    const t=e.target.closest('.ptile');if(!t||e.button>0)return;
-    const tiles=[...g.querySelectorAll('.ptile')];
-    Object.assign(GS,{on:true,id:t.dataset.id,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,mode:null,wasSel:selMode(),tiles,start:tiles.indexOf(t)});
+// one gesture handler per grid (Photos and Slides); api: sel() → Set, setSel(Set), selMode(), tap(id), open(id), sync()
+function gridSelect(grid,item,api){
+  const GS={on:false};
+  const at=(x,y)=>{const el=document.elementFromPoint(x,y);return el&&el.closest?el.closest(item):null};
+  const update=()=>{
+    const t=at(GS.x,GS.y);if(t&&grid.contains(t)){const i=GS.tiles.indexOf(t);if(i>=0)GS.cur=i}
+    const a=Math.min(GS.start,GS.cur),b=Math.max(GS.start,GS.cur),s=new Set(GS.base);
+    for(let i=a;i<=b;i++){const id=GS.tiles[i].dataset.id;GS.add?s.add(id):s.delete(id)}
+    api.setSel(s);api.sync();
+  };
+  const startRange=()=>{
+    const held=GS.mode==='held';GS.mode='range';GS.base=new Set(api.sel());GS.add=held||!api.sel().has(GS.id);GS.cur=GS.start;
+    clearInterval(GS.scrollT);GS.scrollT=setInterval(()=>{const v=GS.y<90?-14:GS.y>innerHeight-150?14:0;if(v){scrollBy(0,v);update()}},30);
+  };
+  grid.addEventListener('pointerdown',e=>{
+    const t=e.target.closest(item);if(!t||e.button>0)return;
+    const tiles=[...grid.querySelectorAll(item)];
+    Object.assign(GS,{on:true,id:t.dataset.id,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,mode:null,wasSel:api.selMode(),tiles,start:tiles.indexOf(t)});
     clearTimeout(GS.hold);GS.hold=setTimeout(()=>{if(!GS.on||GS.mode)return;
-      if(GS.wasSel){GS.mode='done';openPhoto(GS.id)}else{GS.mode='held';PH.sel.add(GS.id);syncPhotoSel()}},420);
+      if(GS.wasSel){GS.mode='done';api.open(GS.id)}else{GS.mode='held';const s=new Set(api.sel());s.add(GS.id);api.setSel(s);api.sync()}},420);
   });
-  g.addEventListener('pointermove',e=>{
+  grid.addEventListener('pointermove',e=>{
     if(!GS.on)return;GS.x=e.clientX;GS.y=e.clientY;const dx=e.clientX-GS.x0,dy=e.clientY-GS.y0,d=Math.hypot(dx,dy);
     if(!GS.mode){if(d<10)return;clearTimeout(GS.hold);if(GS.wasSel&&Math.abs(dx)>Math.abs(dy))startRange();else{GS.mode='scroll';return}}
     else if(GS.mode==='held'){if(d<8)return;startRange()}
-    if(GS.mode==='range')updateRange();
+    if(GS.mode==='range')update();
   });
-  ['pointerup','pointercancel'].forEach(k=>g.addEventListener(k,endGesture));
+  const end=e=>{if(!GS.on)return;GS.on=false;clearTimeout(GS.hold);clearInterval(GS.scrollT);if(!GS.mode&&e.type==='pointerup')api.tap(GS.id)};
+  ['pointerup','pointercancel'].forEach(k=>grid.addEventListener(k,end));
   // while selecting by swiping (or after a hold), the page must not scroll under the finger
-  g.addEventListener('touchmove',e=>{if(GS.on&&(GS.mode==='range'||GS.mode==='held'))e.preventDefault()},{passive:false});
-  g.addEventListener('contextmenu',e=>e.preventDefault());
-  g.addEventListener('click',e=>{const t=e.target.closest('.ptile');if(t&&e.detail===0)tapTile(t.dataset.id)}); // keyboard
-})();
+  grid.addEventListener('touchmove',e=>{if(GS.on&&(GS.mode==='range'||GS.mode==='held'))e.preventDefault()},{passive:false});
+  grid.addEventListener('contextmenu',e=>e.preventDefault());
+  grid.addEventListener('click',e=>{const t=e.target.closest(item);if(t&&e.detail===0)api.tap(t.dataset.id)}); // keyboard
+}
+const selMode=()=>PH.sel.size>0||PH.pick;
+function tapTile(id){if(selMode()){PH.sel.has(id)?PH.sel.delete(id):PH.sel.add(id);syncPhotoSel()}else openPhoto(id)}
+gridSelect($('phGrid'),'.ptile',{sel:()=>PH.sel,setSel:s=>{PH.sel=s},selMode,tap:tapTile,open:id=>openPhoto(id),sync:syncPhotoSel});
+const slideById=id=>[...S.done,...S.pages].find(pg=>pg.id===id);
+function syncSlideSel(){$('slGrid').querySelectorAll('.scard').forEach(c=>c.classList.toggle('sel',SL.sel.has(c.dataset.id)));syncSelbar()}
+gridSelect($('slGrid'),'.scard',{sel:()=>SL.sel,setSel:s=>{SL.sel=s},selMode:()=>SL.sel.size>0,
+  tap:id=>{if(SL.sel.size){SL.sel.has(id)?SL.sel.delete(id):SL.sel.add(id);syncSlideSel()}else{const pg=slideById(id);if(pg)openSlide(pg)}},
+  open:id=>{const pg=slideById(id);if(pg)openSlide(pg)},sync:syncSlideSel});
 function startPick(){PH.pick=true;PH.sel.clear();PH.flt='notv';S.tab='photos';syncTabs()}
 function syncSelbar(){
   const bar=$('selbar');let html='';
@@ -2069,7 +2072,8 @@ function syncSelbar(){
       :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span>${allB}<span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}${S.pages.length?'Add to Edit':'Make slides'}</button><button class="btn" data-a="share" aria-label="Share">${svg('share')}</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
         S.pf.map(f=>`<button class="btn" data-a="sent" data-f="${f.id}">${ltr(f)}Sent</button>`).join('');
   }else if(S.tab==='slides'&&SL.sel.size){
-    html=`<button class="ib" data-a="sx" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${SL.sel.size}</span><span class="spacer"></span><button class="btn primary" data-a="edit">${svg('pen')}Edit</button><button class="btn" data-a="exp">${svg('export')}</button><button class="btn" data-a="tv1">${svg('tv')}On TV</button><button class="btn" data-a="tv0">Off TV</button><button class="btn danger" data-a="del">${svg('trash')}</button>`;
+    const vis=slideList(),all=vis.length>0&&vis.every(pg=>SL.sel.has(pg.id));
+    html=`<button class="ib" data-a="sx" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${SL.sel.size}</span><button class="btn" data-a="sall">${all?'None':'All'}</button><span class="spacer"></span><button class="btn primary" data-a="edit">${svg('pen')}Edit</button><button class="btn" data-a="exp">${svg('export')}</button><button class="btn" data-a="tv1">${svg('tv')}On TV</button><button class="btn" data-a="tv0">Off TV</button><button class="btn danger" data-a="del">${svg('trash')}</button>`;
   }
   bar.hidden=!html;bar.innerHTML=html?`<div class="in">${html}</div>`:'';
   bar.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>selAction(b.dataset.a,b.dataset.f));
@@ -2083,6 +2087,7 @@ function selAction(a,f){
   if(a==='hero'){const l=ph(),on=!l.every(p=>p.hero);l.forEach(p=>p.hero=on);PH.sel.clear();renderPhotos();scheduleSave();hint(on?'Marked as hero.':'No longer heroes.');return}
   if(a==='sent'){const fr=S.pf.find(x=>x.id===f),l=ph();l.forEach(p=>{p.sent=[...new Set([...(p.sent||[]),f])]});PH.sel.clear();renderPhotos();scheduleSave();hint(`${l.length} marked as sent to ${fr.name}.`);return}
   if(a==='sx'){SL.sel.clear();renderSlides();return}
+  if(a==='sall'){const vis=slideList();if(vis.every(pg=>SL.sel.has(pg.id)))vis.forEach(pg=>SL.sel.delete(pg.id));else vis.forEach(pg=>SL.sel.add(pg.id));syncSlideSel();return}
   const l=sl();SL.sel.clear();
   if(a==='edit')toBench(l);
   else if(a==='exp')exportPages(l.filter(pg=>!editing(pg)&&complete(pg)));
@@ -2160,21 +2165,20 @@ async function drawSlide(c,pg){
   const st=stOf(pg);st.photos=pg.photos.map((p,i)=>p&&ims[i]?{...p,prev:ims[i]}:undefined);drawInto(c,st);
 }
 function slidesAll(){return [...S.done,...S.pages].sort((a,b)=>firstDate(a)-firstDate(b))}
+const slideList=()=>{const all=slidesAll();return SL.flt==='todo'?all.filter(pg=>slideState(pg)!=='on'):all}; // what the filter shows
 function renderSlides(){
   const all=slidesAll(),todo=all.filter(pg=>['new','chg'].includes(slideState(pg))&&complete(pg));
   $('slExport').innerHTML=svg('export')+`Export ${todo.length||''}`;$('slExport').disabled=!todo.length;$('slExport').onclick=()=>exportPages(todo);
   const nTodo=all.filter(pg=>slideState(pg)!=='on').length;
   $('slFilters').innerHTML=[['todo','To upload',nTodo],['all','All',all.length]].map(([k,l,n])=>`<button class="chip" data-f="${k}" aria-pressed="${SL.flt===k}">${l} <span class="n">${n}</span></button>`).join('');
   $('slFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{SL.flt=b.dataset.f;renderSlides()});
-  const list=SL.flt==='todo'?all.filter(pg=>slideState(pg)!=='on'):all,g=$('slGrid');g.innerHTML='';
+  const list=slideList(),g=$('slGrid');g.innerHTML='';
   if(!list.length)g.innerHTML=`<p class="note">${all.length?'Everything is on the TV.':'No slides yet. Select photos in Photos and tap Make slides.'}</p>`;
   for(const pg of list){
     const st=slideState(pg),b=document.createElement('button');b.className='scard'+(SL.sel.has(pg.id)?' sel':'');b.dataset.id=pg.id;
     const key=pageSig(pg)+labelFor(pg);let cd=CARD.get(pg.id);
     if(!cd||cd.key!==key){cd={key,canvas:document.createElement('canvas')};CARD.set(pg.id,cd);b.appendChild(cd.canvas);g.appendChild(b);drawSlide(cd.canvas,pg)}else{b.appendChild(cd.canvas);g.appendChild(b)}
     b.insertAdjacentHTML('beforeend',`<span class="smeta"><span class="d">${esc(czDate(filled(pg).map(p=>p.date))||'')}</span>${pillHTML(st)}</span>`);
-    holdable(b,()=>{if(SL.sel.size)openSlide(pg);else{SL.sel.add(pg.id);b.classList.add('sel');syncSelbar()}},()=>{
-      if(SL.sel.size){SL.sel.has(pg.id)?SL.sel.delete(pg.id):SL.sel.add(pg.id);b.classList.toggle('sel',SL.sel.has(pg.id));syncSelbar()}else openSlide(pg)});
   }
   syncSelbar();
 }
