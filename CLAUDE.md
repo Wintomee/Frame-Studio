@@ -259,7 +259,8 @@ Settings (icon only).
   in the filmstrip (`stripTarget`): a thumbnail = onto that slide, a dashed **new-slide slot** = a new slide there
   (`newSlideWith`). The slots (`.newslot`) all appear the moment the drag starts (they make the feature discoverable;
   an invisible-edge version was rejected), never grow or appear while aiming, so the target doesn't move under the
-  finger. While dragging, Done and the small buttons hide so the strip gets the full width (Done used to cover the
+  finger; as they appear the strip centres the current slide (`centerStrip`), so the previous and the next stay in view
+  (before, the shift often left only the previous two). While dragging, Done and the small buttons hide so the strip gets the full width (Done used to cover the
   next slide), and it scrolls by itself near its ends (`stripEdgeScroll`). The dragged photo
   (`ghost.aim`) gets an accent ring over any target. iOS Safari has no vibration API, so there is no haptic tick there.
   **Layouts**: one row only (user's request): an "All" chip plus the photo-preview alternatives for the current photo
