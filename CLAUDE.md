@@ -182,7 +182,8 @@ in its own `/*LABELS-START*/…/*LABELS-END*/` block (unit-tested like the solve
   and only scrolls to the active image when the selection changes (`stripAt`). The queue (`poiQ`,
   `poiRun`) runs in the background from the moment photos are picked, one spot per request, ≥1.1 s apart (Nominatim's policy is
   1/s), 15 s timeout, back-off 3→6→12…30 s on 429/5xx/offline; only
-  coordinates rounded to 3 decimals (~100 m) are sent, and answers are cached in IndexedDB `kv.poi` (a rejected query
+  coordinates rounded to 3 decimals (~100 m) are sent; newly imported photos jump the queue and, within a batch,
+  photos outside Czechia go first (`poiEnqueue(…, front)`), so landmarks are usually ready by the time they reach Edit; and answers are cached in IndexedDB `kv.poi` (a rejected query
   is not cached and shows one message). Progress is a thin bar right above the tab bar with a pin and "3/17" at the far
   left (`#poiBadge`; it first sat on the preview, which hid photos). Filmstrip thumbnails show a pin in the bottom-right
   corner, no backdrop, mostly outside the picture (`geoState`: crossed = no GPS, nothing = lookups off, dark red =
@@ -222,24 +223,95 @@ Per-photo `crop` {x,y,w,h} (0..1 of the original). `ow`/`oh` are the original pi
 **effective (cropped)** dimensions used everywhere, including the solver, the upscale check and drawing. After a crop
 the page is re-fitted, and if it becomes invalid the cheapest `buildAlts` option is applied automatically.
 
+### Collection model (live since the `collection` branch was merged; built and tested as a beta at /beta/ first)
+The user's real process: keep a collection of good photos, then make slides from a few at a time, and know which photos
+are already on the TV (his wife adds photos too) or sent to the grandparents' frames. Prototyped with him first
+(artifact "Frame Studio Prototype"). Four tabs: **Photos** · **Edit** (only while slides are being edited) · **Slides** ·
+Settings (icon only).
+- State: `S.lib` = every photo in the collection; `S.pages` = **only the slides being edited** (so all the existing
+  editing code, recompose, hero, try-another, filmstrip and full screen work on that working set unchanged);
+  `S.done` = every other slide. **A photo can be on several slides** (user's choice; nothing is ever taken off another
+  slide without asking): each slide holds its own copy (`placeOf`, own `pid`, pan, zoom and crop; the decoded preview
+  is shared through `PREV`), the collection entry holds hero, sent marks and the files. `slideMap` maps photo id → all
+  its slides; alt/hero re-plans key copies by `pid`. Deleting a slide or taking a photo off a slide never deletes the
+  photo; only Remove in the photo detail does.
+- **TV status per slide**: `pg.tv` + `pg.tvSig` (= `pageSig` when marked). `slideState`: `ed` (in Edit), `new`, `on`,
+  `chg` (signature differs: edited or restyled since upload; the signature covers layout, placement, label choices and
+  style, not the computed label, which changes while places load). A photo counts as on the TV when its slide is.
+- **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on TV
+  (default) / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
+  bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). **Hold** starts
+  selecting; in select mode tap toggles and hold opens the detail; selecting only toggles classes (`syncPhotoSel`) so
+  the grid keeps its scroll. Bar: Make slides, ★, "Sent" per frame. Detail sheet: swipe/arrows through the filtered
+  list, hero, date, location text (no coordinates; lookups start at import), TV state, frame toggles, Select (keeps
+  the sheet open), Slide, red Remove.
+- **Import** goes straight into the collection with the new photos selected (the review step was dropped: hero etc.
+  are set in Photos). **Make slides** (`makeSlides`) arranges the selected free photos among themselves (`plan`) and
+  appends the new slides after those already in Edit, which stay untouched; while Edit has slides the bar reads "Add
+  to Edit". `+` in the Edit filmstrip (`startPick`) opens Photos already in select mode ("Add to Edit"); photos already on
+  a slide are faded but can be picked (a new copy; the other slides keep theirs). Tiles show the number of slides when
+  a photo is on more than one. **Done** (`finishEdit`) moves the slides to `S.done` and frees their 1000 px
+  previews (`ensurePrev` decodes them again when a slide is edited: `toBench`, which locks them so recompose won't churn).
+  Done is a big button right of the filmstrip (`#bDone`), always visible (the user couldn't find it at the strip's end).
+- **Edit tab** = the old Layout tab plus a collapsed **Frame** section (`#frmBox`, the old Frame tab: frame, background,
+  wall, padding; it applies to all slides, so usually skipped). "Split into 2" and "Merge" suggestions were dropped
+  (user's request): dragging a photo onto another slide merges, and while dragging, dashed **new-slide slots** appear
+  in the filmstrip (`stripTarget`): a thumbnail = onto that slide, a dashed **new-slide slot** = a new slide there
+  (`newSlideWith`). The slots (`.newslot`) all appear the moment the drag starts (they make the feature discoverable;
+  an invisible-edge version was rejected), never grow or appear while aiming, so the target doesn't move under the
+  finger; as they appear the strip centres the current slide (`centerStrip`), so the previous and the next stay in view
+  (before, the shift often left only the previous two). While dragging, Done and the small buttons hide so the strip gets the full width (Done used to cover the
+  next slide), and it scrolls by itself near its ends (`stripEdgeScroll`). The dragged photo
+  (`ghost.aim`) gets an accent ring over any target. iOS Safari has no vibration API, so there is no haptic tick there.
+  **Layouts**: one row only (user's request): an "All" chip plus the photo-preview alternatives for the current photo
+  count (no min/keeps captions, cards hidden when there's only one). The old icon rows (`renderGroups`) show only after
+  All. The row is a strongly tinted panel with 132 px cards drawn as bare photos on a plain ground, so it isn't
+  mistaken for the filmstrip (smaller cards looked even more like it). No location pins on Edit filmstrip thumbnails.
+- **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
+  To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
+  toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded
+  to the TV?" → `markTV`.
+- **Add existing slides** (`+` on the Slides tab, `addSlides`): Frame Studio exports carry their rects in the XMP, so
+  each cut-out is matched to the collection by picture content (`arrOf` → `sigOf`: 16×16 RGB box-averaged signatures,
+  correlation; `fitPhoto` tries zoom 1 along the free axis plus zoom 1.3/1.7 on a grid, then refines; accepted above
+  .8; a photo is used once per slide). The slide is added as on the TV. A cut-out with no match becomes a photo
+  of its own (`ph.cut`) and is swapped for the original when it is imported later (`replaceCuts`), keeping the slide's
+  TV state. Tested with generated textured photos incl. near-duplicate pairs: 20/20 right, both orders. Exports now
+  also store each photo's date/zoom/pan (`photos` in the metadata) for later use. Exports without metadata (other
+  apps, or if iOS stripped it) are skipped and counted in the message.
+- **Share** (selection bar and photo detail, `sharePhotos`): the iPhone share sheet with the photos' 4K copies, so
+  they go straight to Frameo, AirDrop or Messages (user's idea: send the photos a frame is missing). Afterwards one tap
+  marks them as sent to a photo frame. Shared copies of photos over 3840 px lack the original EXIF (date, GPS), since
+  the 4K copy is re-encoded.
+- **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
+  online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
+  sizes stay a later step.
+- **Storage**: import keeps a 4K copy (long edge 3840, JPEG .92) instead of the original (user chose bigger copies over
+  previews only; a web app can't keep references into the iOS photo library). Assets: `file`, `prevBlob`, `thumbBlob`.
+- **Beta deploy** (for the next big change): `node tools/build-beta.cjs <branch index.html> <version>` writes `beta/` (own IndexedDB
+  `frame-studio-beta`, `fsb-` localStorage keys, own service worker and cache `fsb-…`, shares `../places.txt` and icons).
+  The main worker ignores `/beta/` and each worker only deletes its own old caches. Commit `beta/` on main; the main app
+  itself is unchanged until the branch is merged. The beta keeps its own data; nothing moves between beta and live.
+- **Migration** of a live v2 set was tested with the old and new `index.html` on one origin: slides, photos, custom
+  label, pan/zoom and hero carried over; every old image becomes a slide marked "Not on TV" (mark them in Slides).
+
 ### Persistence
-IndexedDB `frame-studio-v2` with stores `assets` (original file blob plus a ~1000px `prevBlob`, dims, date, GPS) and
-`kv` (`state`: pages, crops, rules, style). Restore decodes **only the small previews**. Decoding every full-res photo
-on load crashed the iOS web view. A `localStorage` flag (`fs-restoring`) skips restore once if the previous attempt
-crashed. Unreferenced assets are purged on save, except while an Undo is pending or an import is running.
+IndexedDB `frame-studio-v2` with stores `assets` (4K copy, ~1000px `prevBlob`, ~400px `thumbBlob`, dims, date, GPS) and
+`kv` (`state` v3: `lib` (hero, crop, sent), `pages` (in Edit), `done`, photo frames, rules, style). Older v2 states are
+migrated on restore: every image becomes a finished slide, thumbnails are made once. Restore decodes **only
+thumbnails**, plus previews of slides in Edit. Decoding every full-res photo on load crashed the iOS web view. A
+`localStorage` flag (`fs-restoring`) skips restore once if the previous attempt crashed. Assets not in the collection
+are purged on save, except while an Undo is pending or an import is running.
 
 ### Locking (hidden, candidate for removal)
 Pages auto-lock when edited by hand, and recompose skips locked pages. The lock UI is hidden because the user isn't
 sure it's needed; the code is kept for now. Decide with him before removing or exposing it.
 
 ## UI decisions already made (don't undo without asking)
-- **Import goes through a review step first** (user's request): a full-screen grid of the new batch (`openReview`,
-  `RV.list`, scrolling in `.rvscroll`: with the grid itself as the flex scroller, iOS squashed the rows) where tapping a photo toggles hero, ✕ removes it, and Add picks more. "Arrange N photos" then auto-composes
-  (`arrangeNew`) and opens the Auto-arrange sheet (presets + collapsible fine-tune + try another), so rules can be
-  changed straight away. Cancel drops only the new batch. `S.importing` stays on during the review so its assets aren't
-  purged. Rules are not a tab.
-- Tabs: **Layout** (the only place editing gestures work), **Frame** (preview is view-only, no handles or badges),
-  **Export**. The tab bar is compact (icon and label inline, reduced bottom safe area). The user wanted tabs that look
+- **Import has no review step any more** (the user dropped it once the Photos tab existed): photos go straight into the
+  collection, selected. The review screen code (`openReview`, `RV`) is still in the file but unused. Rules are not a
+  tab (Settings opens the sheet).
+- Tabs: see the collection model above (Edit is the only place editing gestures work). The tab bar is compact (icon and label inline, reduced bottom safe area). The user wanted tabs that look
   physical: the bar is a darker strip and the selected tab hangs from the page (page colour, side borders, rounded
   bottom, shadow, accent underline); the first tinted-tab attempt wasn't enough.
 - No status/info row: messages are a transient pill at the top, and photo actions (replace, crop, reset zoom, remove)
