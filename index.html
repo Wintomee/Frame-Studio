@@ -230,7 +230,7 @@ body:not(.t-layout) header.top{display:none}
 .ptile .hs{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.45);color:#f5c542;display:grid;place-items:center}
 .ptile .hs svg{width:12px;height:12px;fill:currentColor;stroke:currentColor;stroke-width:1}
 .ptile .bl{position:absolute;left:4px;right:4px;bottom:4px;display:flex;align-items:center;gap:3px;pointer-events:none}
-.ptile .bd{height:18px;min-width:18px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.5);color:#fff;display:inline-grid;place-items:center}
+.ptile .bd b{font-size:10px;margin-left:2px}.ptile .bd{height:18px;min-width:18px;padding:0 4px;border-radius:9px;background:rgba(0,0,0,.5);color:#fff;display:inline-grid;place-items:center}
 .ptile .bd.ed{background:var(--accent);color:var(--accent-text)}
 .ptile .bd svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .ltr{width:17px;height:17px;border-radius:50%;color:#fff;font-size:10px;font-weight:800;display:inline-grid;place-items:center;flex:none;line-height:1;box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
@@ -1317,11 +1317,19 @@ async function fullOf(ph){return ph.src||imgFrom(ph.file)}
 // small square-ish thumbnail for the Photos grid and slide cards
 function thumbOf(src){const c=shrink(src,src.width,src.height,400);return new Promise(r=>c.toBlob(b=>{c.width=c.height=1;r(b)},'image/jpeg',.8))}
 // the 1000 px preview is decoded only for photos on slides being edited (decoding them all crashed iOS before)
+const PREV=new Map(); // photo id → decoded preview, shared by every slide the photo is on
 async function ensurePrev(ph){
-  if(ph.prev)return ph;const a=await DB.get('assets',ph.id).catch(()=>null);
+  if(ph.prev)return ph;if(PREV.has(ph.id)){ph.prev=PREV.get(ph.id);return ph}
+  const a=await DB.get('assets',ph.id).catch(()=>null);
   if(a&&a.prevBlob){const im=await imgFrom(a.prevBlob);ph.prev=shrink(im,im.naturalWidth,im.naturalHeight,1000);freeImg(im)}
   else{const c=document.createElement('canvas');c.width=c.height=4;ph.prev=c}
-  return ph;
+  PREV.set(ph.id,ph.prev);return ph;
+}
+// A photo can be on several slides (user's choice): each slide holds its own copy with its own pan, zoom and crop
+// (pid tells the copies apart); the collection entry (S.lib) holds what belongs to the photo itself.
+function placeOf(p,q={}){
+  const cr=q.crop!==undefined?q.crop:null,ow=p.ow??p.w,oh=p.oh??p.h;
+  return {...p,pid:newId(),zoom:q.zoom??1,cx:q.cx??.5,cy:q.cy??.5,crop:cr,w:cr?Math.round(ow*cr.w):ow,h:cr?Math.round(oh*cr.h):oh,ow,oh,hero:q.hero??!!p.hero,prev:PREV.get(p.id)||null};
 }
 
 
@@ -1369,12 +1377,12 @@ async function restore(){
       let tb=a.thumbBlob;
       if(!tb){hint(`Updating your photos… ${++n}`);const im=await imgFrom(a.prevBlob);tb=await thumbOf(im);freeImg(im);a.thumbBlob=tb;await DB.put('assets',id,a)}
       const q={...(pgPh.get(id)||{}),...(libRec.get(id)||{})},cr=q.crop||null;
-      byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:cr?Math.round(a.w*cr.w):a.w,h:cr?Math.round(a.h*cr.h):a.h,crop:cr,hero:!!q.hero,
+      byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:a.w,h:a.h,crop:null,hero:!!(libRec.get(id)||q).hero,
         date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:1,cx:.5,cy:.5,sent:q.sent||[],cut:!!q.cut});
     }
     S.lib=[...byId.values()].sort((a,b)=>a.date-b.date);
     const build=list=>{const out=[];for(const pg of list||[]){
-      const photos=pg.photos.map(q=>{const ph=q&&byId.get(q.id);if(!ph)return undefined;ph.zoom=q.zoom??1;ph.cx=q.cx??.5;ph.cy=q.cy??.5;return ph});
+      const photos=pg.photos.map(q=>{const ph=q&&byId.get(q.id);return ph?placeOf(ph,q):undefined});
       if(photos.some(Boolean))out.push(migrateLabel({lm:st.labelMode,...pg,photos}))}return out};
     // older sets: every image becomes a finished slide; nothing is being edited
     S.done=build(v3?st.done:st.pages);S.pages=v3?build(st.pages):[];
@@ -1441,7 +1449,7 @@ async function importFiles(files){
   S.importing=true;const news=[];let n=0; // stays on through the review, so its photos aren't purged
   for(const f of files){
     hint(`Loading ${++n} of ${files.length}…`);
-    try{const ph=await loadPhoto(f);ph.id=newId();await putAsset(ph);news.push(ph)}catch{}
+    try{const ph=await loadPhoto(f);ph.id=newId();await putAsset(ph);ph.prev=null;news.push(ph)}catch{} // the preview is decoded again only when it goes on a slide
   }
   S.importing=false;
   if(!news.length){hint('Those files couldn’t be opened as images.');return}
@@ -1486,13 +1494,14 @@ $('rvGo').onclick=()=>{
 };
 // selected photos → slides on the Edit tab, arranged with the current rules (like auto-arrange used to do on import)
 async function makeSlides(list){
-  const free=list.filter(p=>!slideOf(p.id));
-  if(!free.length){hint('Those photos are already on slides.');return}
-  hint('Composing…');await tick();for(const p of free){await ensurePrev(p);resetP(p)}
+  // every pick becomes a new copy on a new slide; slides that already have the photo keep it (user's choice)
+  if(!list.length)return;const use=list.map(p=>placeOf(p));
+  hint('Composing…');await tick();for(const p of use)await ensurePrev(p);
   // arranged among themselves and added after the slides already in Edit, which stay as they are
-  const before=S.pages.length,fresh=plan(free,0).res.map(b=>pageFrom(b));S.pages.push(...fresh);if(fresh.length)S.active=before;
+  const sm=slideMap(),before=S.pages.length,fresh=plan(use,0).res.map(b=>pageFrom(b));S.pages.push(...fresh);if(fresh.length)S.active=before;
   PH.sel.clear();PH.pick=false;S.tab='layout';refresh();
-  const skip=list.length-free.length;hint(`${S.pages.length-before>0?S.pages.length-before:'No'} new slide${S.pages.length-before===1?'':'s'}`+(skip?` · ${skip} already on a slide`:'')+'.');
+  const again=list.filter(p=>sm.has(p.id)).length;
+  hint(`${fresh.length||'No'} new slide${fresh.length===1?'':'s'}`+(again?` · ${again} photo${again>1?'s are':' is'} on other slides too`:'')+'.');
   if(!localStorage_get('tour')){showTour();localStorage_set('tour','1')}
 }
 $('importFile').addEventListener('change',e=>{const f=[...e.target.files];if(f.length)importFiles(f)});
@@ -1503,7 +1512,7 @@ let cellTarget=-1;
 function pickCell(i){cellTarget=i;const f=$('cellFile');f.value='';f.click()}
 $('cellFile').addEventListener('change',async e=>{
   const file=e.target.files[0],pg=P();if(!file||!pg)return;hint('Loading…');
-  try{const ph=await loadPhoto(file);ph.id=newId();await putAsset(ph);S.lib.push(ph);S.lib.sort((a,b)=>a.date-b.date);poiEnqueue([ph]);pg.photos[cellTarget]=ph;S.sel=cellTarget;touched(pg);hint('')}
+  try{const ph=await loadPhoto(file);ph.id=newId();await putAsset(ph);PREV.set(ph.id,ph.prev);S.lib.push({...ph,prev:null});S.lib.sort((a,b)=>a.date-b.date);poiEnqueue([ph]);pg.photos[cellTarget]=placeOf(ph);S.sel=cellTarget;touched(pg);hint('')}
   catch{hint('That file couldn’t be opened as an image.')}
   refresh();
 });
@@ -1799,8 +1808,8 @@ function buildAlts(){
   return {base:S.pages.map(snapPage),baseId:cur.id,opts:opts.slice(0,40),k:0,lastSig:''};
 }
 function applyAlt(o){
-  const byId=new Map(S.pages.flatMap(filled).map(p=>[p.id,p]));
-  const set=(pg,A)=>Object.assign(pg,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.id)))});
+  const byId=new Map(S.pages.flatMap(filled).map(p=>[p.pid||p.id,p]));
+  const set=(pg,A)=>Object.assign(pg,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.pid||p.id)))});
   set(S.pages.find(p=>p.id===ALT.baseId),o.cur);
   if(o.kind==='pair'){const oi=S.pages.findIndex(p=>p.id===o.otherId);if(o.other)set(S.pages[oi],o.other);else S.pages.splice(oi,1)}
 }
@@ -1848,19 +1857,19 @@ function heroPlan(hero){
 }
 $('bHero').onclick=async()=>{
   const pg=P(),ph=pg&&pg.photos[S.sel];if(!ph)return;
-  if(ph.hero){ph.hero=false;refresh();hint('No longer the hero.');return}
+  if(ph.hero){ph.hero=false;const L=S.lib.find(x=>x.id===ph.id);if(L)L.hero=false;refresh();hint('No longer the hero.');return}
   const before=S.pages.map(snapPage),at=S.active,areaOf=()=>{const r=rectsOf(Lof(P()),S.pad,insOf(S.frame))[P().photos.indexOf(ph)];return r.w*r.h},a0=areaOf();
-  filled(pg).forEach(p=>p.hero=false);ph.hero=true;hint('Making room…');await tick(30);
+  filled(pg).forEach(p=>p.hero=false);ph.hero=true;{const L=S.lib.find(x=>x.id===ph.id);if(L)L.hero=true}hint('Making room…');await tick(30);
   const o=heroPlan(ph);
   if(!o){refresh();hint('It can’t get bigger within the rules.');return}
-  const byId=new Map(S.pages.flatMap(filled).map(p=>[p.id,p]));
-  const set=(page,A)=>Object.assign(page,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.id)))});
+  const byId=new Map(S.pages.flatMap(filled).map(p=>[p.pid||p.id,p]));
+  const set=(page,A)=>Object.assign(page,{cells:A.def.cells,dx:A.def.dx,dy:A.def.dy,x:[...A.L.x],y:[...A.L.y],photos:A.photos.map(p=>resetP(byId.get(p.pid||p.id)))});
   set(pg,o.A);
   let moved=0;
   if(!o.keep){
     // the nearby images are replaced by the re-arranged ones, slotted in by date where the first of them was
     const gone=new Set(o.near),from=Math.min(...o.near.map(p=>S.pages.indexOf(p)).filter(i=>i>=0),S.pages.indexOf(pg));
-    const fresh=o.pages.map(b=>pageFrom({def:b.def,L:b.L,photos:b.photos.map(p=>byId.get(p.id))}));
+    const fresh=o.pages.map(b=>pageFrom({def:b.def,L:b.L,photos:b.photos.map(p=>byId.get(p.pid||p.id))}));
     moved=fresh.length;S.pages=S.pages.filter(p=>!gone.has(p));S.pages.splice(S.pages.indexOf(pg),1);
     const block=[pg,...fresh].sort((a,b)=>firstDate(a)-firstDate(b));S.pages.splice(Math.min(from,S.pages.length),0,...block);
   }
@@ -1951,14 +1960,14 @@ function holdable(el,onHold,onTap){let t=0,held=false,x0=0,y0=0;
 /* ---------- where photos are: a photo is on at most one slide ---------- */
 const PH={sel:new Set(),pick:false,flt:'notv'},SL={sel:new Set(),flt:'todo'};
 const PF_COLORS=['#c27a2c','#8a4fa3','#3f8f8a','#b0475e','#4a5fc1','#6b7f2a'];
-function slideMap(){const m=new Map();[...S.done,...S.pages].forEach(pg=>filled(pg).forEach(p=>m.set(p.id,pg)));return m}
-const slideOf=id=>slideMap().get(id);
+function slideMap(){const m=new Map();[...S.pages,...S.done].forEach(pg=>filled(pg).forEach(p=>{const a=m.get(p.id);if(a){if(!a.includes(pg))a.push(pg)}else m.set(p.id,[pg])}));return m}
+const slideOf=id=>(slideMap().get(id)||[])[0]; // the first: one in Edit if there is one
 const editing=pg=>S.pages.includes(pg);
 // what the TV shows is recorded per slide; "changed" = edited (or restyled) since it was marked as on the TV
 const pageSig=pg=>JSON.stringify([pg.cells,pg.x.map(v=>+v.toFixed(4)),pg.y.map(v=>+v.toFixed(4)),pg.photos.map(p=>p&&[p.id,+(+p.zoom).toFixed(3),+(+p.cx).toFixed(3),+(+p.cy).toFixed(3),p.crop]),
   pg.label,pg.lf,pg.lmSel,pg.tSel,pg.cSel,S.frame,S.bg,+S.pad.toFixed(4),S.wall,S.fopt[S.frame]]);
 const slideState=pg=>editing(pg)?'ed':!pg.tv?'new':pageSig(pg)!==pg.tvSig?'chg':'on';
-const onTVp=(p,sm)=>{const pg=sm.get(p.id);return !!(pg&&pg.tv)};
+const onTVp=(p,sm)=>(sm.get(p.id)||[]).some(pg=>pg.tv);
 const ST_LABEL={on:'On TV',chg:'Changed',new:'Not on TV',ed:'Editing'};
 const pillHTML=st=>`<span class="pill ${st}">${st==='on'?svg('tv'):''}${ST_LABEL[st]}</span>`;
 const ltr=f=>`<span class="ltr" style="background:${f.color}">${esc(f.letter)}</span>`;
@@ -1975,13 +1984,13 @@ function renderPhotos(){
   $('phFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{PH.flt=b.dataset.f;renderPhotos()});
   const g=$('phGrid');g.innerHTML='';
   for(const p of phList(sm)){
-    const pg=sm.get(p.id),b=document.createElement('button');b.className='ptile';b.dataset.id=p.id;
-    const tvIc=pg?(editing(pg)?`<span class="bd ed">${svg('pen')}</span>`:pg.tv?`<span class="bd">${svg('tv')}</span>`:`<span class="bd">${svg('slides')}</span>`):'';
+    const pgs=sm.get(p.id)||[],b=document.createElement('button');b.className='ptile';b.dataset.id=p.id;
+    const n=pgs.length>1?`<b>${pgs.length}</b>`:'';
+    const tvIc=pgs.length?(pgs.some(editing)?`<span class="bd ed">${svg('pen')}${n}</span>`:pgs.some(x=>x.tv)?`<span class="bd">${svg('tv')}${n}</span>`:`<span class="bd">${svg('slides')}${n}</span>`):'';
     const lt=(p.sent||[]).map(id=>S.pf.find(f=>f.id===id)).filter(Boolean).map(ltr).join('');
     b.innerHTML=`<img src="${p.thumb||''}" alt="" loading="lazy" decoding="async" draggable="false">${p.hero?`<span class="hs">${svg('star')}</span>`:''}<span class="bl">${tvIc}<span class="spacer"></span>${lt}</span>`;
     b.setAttribute('aria-label','Photo');
     holdable(b,()=>{if(PH.sel.size||PH.pick)openPhoto(p.id);else{PH.sel.add(p.id);syncPhotoSel()}},()=>{
-      if(PH.pick&&sm.get(p.id)){hint('Already on a slide.');return}
       if(PH.pick||PH.sel.size){PH.sel.has(p.id)?PH.sel.delete(p.id):PH.sel.add(p.id);syncPhotoSel()}else openPhoto(p.id)});
     g.appendChild(b);
   }
@@ -1990,7 +1999,8 @@ function renderPhotos(){
 // selection changes only touch classes and the bar, so the grid keeps its scroll position
 function syncPhotoSel(){
   const sm=slideMap();
-  $('phGrid').querySelectorAll('.ptile').forEach(t=>{const pg=sm.get(t.dataset.id);t.classList.toggle('sel',PH.sel.has(t.dataset.id));t.classList.toggle('ed',!!pg&&editing(pg));t.classList.toggle('na',PH.pick&&!!pg)});
+  // on a slide already: faded while picking, but it can still be picked (it then is on one more slide)
+  $('phGrid').querySelectorAll('.ptile').forEach(t=>{const pgs=sm.get(t.dataset.id)||[];t.classList.toggle('sel',PH.sel.has(t.dataset.id));t.classList.toggle('ed',pgs.some(editing));t.classList.toggle('na',PH.pick&&pgs.length>0)});
   syncSelbar();
 }
 function startPick(){PH.pick=true;PH.sel.clear();PH.flt='notv';S.tab='photos';syncTabs()}
@@ -2039,14 +2049,15 @@ function placeLine(ph){
 async function openPhoto(id,list){
   list=list||phList();let i=list.findIndex(p=>p.id===id);if(i<0){list=S.lib;i=list.findIndex(p=>p.id===id)}
   const ph=list[i];if(!ph)return;const pg=slideOf(id),pl=placeLine(ph);
-  const tvTxt=pg?(editing(pg)?'being edited':pg.tv?(slideState(pg)==='chg'?'on the TV (slide changed since)':'on the TV'):'on a slide, not on the TV yet'):'not on a slide';
+  const pgs=slideMap().get(id)||[],tvOn=pgs.filter(x=>x.tv).length;
+  const tvTxt=!pgs.length?'not on a slide':tvOn?`on the TV${pgs.length>1?` (${tvOn} of ${pgs.length} slides)`:''}`:pgs.some(editing)?'being edited':'on a slide, not on the TV yet';
   if(bigUrl){URL.revokeObjectURL(bigUrl);bigUrl=null}
   openModal(`<div class="pv" id="pv"><img id="pvImg" src="${ph.thumb||''}" alt="">
       <button class="nav l" id="pPrev" aria-label="Previous photo" ${i>0?'':'hidden'}>${svg('chevL')}</button><button class="nav r" id="pNext" aria-label="Next photo" ${i<list.length-1?'':'hidden'}>${svg('chevR')}</button>
       <span class="cnt">${i+1} / ${list.length}</span></div>
     <div class="row"><button class="tgl star" id="pHero" aria-pressed="${!!ph.hero}">${svg('star')}Hero</button><span class="spacer"></span><span class="note">${ph.date?new Date(ph.date).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}):''}</span></div>
     <div class="geoln ${pl.k}">${svg(pl.k==='none'?'pinx':'pin')}<span>${esc(pl.t)}</span></div>
-    <div class="row"><button class="tgl" disabled aria-pressed="${!!(pg&&pg.tv)}">${svg('tv')}TV · ${tvTxt}</button>${S.pf.map(f=>`<button class="tgl" data-f="${f.id}" aria-pressed="${(ph.sent||[]).includes(f.id)}">${ltr(f)}${esc(f.name)}</button>`).join('')}</div>
+    <div class="row"><button class="tgl" disabled aria-pressed="${tvOn>0}">${svg('tv')}TV · ${tvTxt}</button>${S.pf.map(f=>`<button class="tgl" data-f="${f.id}" aria-pressed="${(ph.sent||[]).includes(f.id)}">${ltr(f)}${esc(f.name)}</button>`).join('')}</div>
     <div class="row"><button class="tgl" id="pSel" aria-pressed="${PH.sel.has(id)}">${svg('check')}${PH.sel.has(id)?'Selected':'Select'}</button>${pg?`<button class="btn slim" id="pSlide">${svg('slides')}Slide</button>`:''}<button class="btn slim" id="pShare" aria-label="Share">${svg('share')}</button><span class="spacer"></span><button class="btn slim red" id="pDel">${svg('trash')}Remove</button></div>`);
   // the larger preview replaces the thumbnail once it is read
   DB.get('assets',id).then(a=>{if(!a||!a.prevBlob||!$('pvImg'))return;bigUrl=URL.createObjectURL(a.prevBlob);$('pvImg').src=bigUrl}).catch(()=>{});
@@ -2130,8 +2141,8 @@ async function toBench(list){
 function finishEdit(){
   const n=S.pages.length;if(!n)return;
   S.done.push(...S.pages);S.done.sort((a,b)=>firstDate(a)-firstDate(b));S.pages=[];S.sel=-1;ALT=null;
-  const keep=new Set(RV.list?RV.list.map(p=>p.id):[]);S.lib.forEach(p=>{if(!keep.has(p.id))p.prev=null}); // previews are only kept for slides being edited
-  S.tab='slides';SL.flt='todo';refresh();hint(`${n} slide${n===1?'':'s'} in Slides.`);
+  PREV.clear();S.done.forEach(pg=>filled(pg).forEach(p=>{p.prev=null})); // previews are only kept for slides being edited
+  S.tab='slides';SL.flt='todo';refresh();hint(`${n} slide${n===1?'':'s'} in Slides.`);flushSave();
 }
 function deleteSlides(list){
   const pages=S.pages.map(snapPage),done=S.done.map(snapPage),act=S.active,ids=new Set(list.map(pg=>pg.id));
@@ -2181,17 +2192,17 @@ async function addSlides(files){
     const file=files[fi];hint(`Reading slide ${fi+1} of ${files.length}…`);
     try{
       const meta=readMeta(await file.arrayBuffer());if(!meta||!meta.rects){skipped++;continue}
-      const im=await imgFrom(file),sx=im.naturalWidth/meta.W,sy=im.naturalHeight/meta.H,photos=[],taken=new Set(slideMap().keys()); // a photo is on one slide at most
+      const im=await imgFrom(file),sx=im.naturalWidth/meta.W,sy=im.naturalHeight/meta.H,photos=[],taken=new Set(); // not twice on one slide
       if(!S.lib.length&&!S.done.length&&!S.pages.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
       for(const r of meta.rects){
         const g=arrOf(im,r.x*sx,r.y*sy,r.w*sx,r.h*sy),target=sigOf(g,0,0,g.w,g.h),ar=r.w/r.h;
         const m=await bestMatch(target,ar,pool(),taken);
-        if(m){taken.add(m.p.id);Object.assign(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy});photos.push(m.p);found++;continue}
+        if(m){taken.add(m.p.id);photos.push(placeOf(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy}));found++;continue}
         // no original in the collection: the cut-out itself becomes the photo, until the original turns up
         const c=document.createElement('canvas');c.width=Math.round(r.w*sx);c.height=Math.round(r.h*sy);c.getContext('2d').drawImage(im,r.x*sx,r.y*sy,r.w*sx,r.h*sy,0,0,c.width,c.height);
         const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',.95));
         const ph={id:newId(),file:blob,prev:shrink(c,c.width,c.height,1000),w:c.width,h:c.height,ow:c.width,oh:c.height,date:file.lastModified||Date.now(),lat:null,lon:null,zoom:1,cx:.5,cy:.5,sent:[],cut:true};
-        c.width=c.height=1;await putAsset(ph);ph.prev=null;S.lib.push(ph);photos.push(ph);cuts++;
+        c.width=c.height=1;await putAsset(ph);ph.prev=null;S.lib.push(ph);photos.push(placeOf(ph));cuts++;
       }
       freeImg(im);
       const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
@@ -2207,11 +2218,11 @@ async function addSlides(files){
 // newly imported photos replace cut-outs they match
 async function replaceCuts(news){
   const cutOn=[...S.done,...S.pages].flatMap(pg=>pg.photos.map((p,i)=>p&&p.cut?{pg,i,p}:null)).filter(Boolean);if(!cutOn.length)return 0;
-  const taken=new Set(slideMap().keys());let n=0;
+  const taken=new Set();let n=0;
   for(const c of cutOn){
-    const g=await photoArr(c.p);if(!g)continue;const m=await bestMatch(sigOf(g,0,0,g.w,g.h),c.p.w/c.p.h,news,taken);if(!m)continue;
-    const wasOn=c.pg.tv&&pageSig(c.pg)===c.pg.tvSig;taken.add(m.p.id);Object.assign(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy});
-    if(editing(c.pg))await ensurePrev(m.p);c.pg.photos[c.i]=m.p;S.lib=S.lib.filter(q=>q!==c.p);if(wasOn)c.pg.tvSig=pageSig(c.pg);n++;
+    const lib=S.lib.find(q=>q.id===c.p.id)||c.p,g=await photoArr(lib);if(!g)continue;const m=await bestMatch(sigOf(g,0,0,g.w,g.h),c.p.w/c.p.h,news,taken);if(!m)continue;
+    const wasOn=c.pg.tv&&pageSig(c.pg)===c.pg.tvSig,np=placeOf(m.p,{zoom:m.zoom,cx:m.cx,cy:m.cy});
+    if(editing(c.pg))await ensurePrev(np);c.pg.photos[c.i]=np;S.lib=S.lib.filter(q=>q.id!==c.p.id);if(wasOn)c.pg.tvSig=pageSig(c.pg);n++;
   }
   news.forEach(p=>delete p._g);S.lib.forEach(p=>delete p._g);return n;
 }
@@ -2527,12 +2538,12 @@ $('exportFile').addEventListener('change',async e=>{
       c.getContext('2d').drawImage(im,r.x*sx,r.y*sy,r.w*sx,r.h*sy,0,0,r.w,r.h);
       const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',0.95));
       const ph={id:newId(),file:blob,prev:shrink(c,r.w,r.h,1000),w:r.w,h:r.h,ow:r.w,oh:r.h,date:file.lastModified||Date.now(),zoom:1,cx:.5,cy:.5};
-      c.width=c.height=1;await putAsset(ph);photos.push(ph);
+      c.width=c.height=1;await putAsset(ph);PREV.set(ph.id,ph.prev);photos.push(placeOf(ph));
     }
     freeImg(im);
     const def=LAYOUTS.find(L=>JSON.stringify(L.cells)===JSON.stringify(meta.cells));
     const pg={id:newId(),cells:meta.cells,dx:def?def.dx:[...meta.x],dy:def?def.dy:[...meta.y],x:[...meta.x],y:[...meta.y],photos,locked:true};if(typeof meta.label==='string')pg.label=meta.label;
-    S.lib.push(...photos);S.lib.sort((a,b)=>a.date-b.date);
+    S.lib.push(...photos.map(q=>({...q,pid:undefined,prev:null})));S.lib.sort((a,b)=>a.date-b.date);
     if(!S.pages.length&&!S.done.length){S.bg=meta.bg;S.wall=WALLS[meta.wall?.kind]?meta.wall:{kind:'none',depth:'medium'};S.frame=FRAMES[meta.frame]?meta.frame:'none';setPad(meta.pad);if(meta.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],meta.fopt[k]||{})}
     S.pages.push(pg);S.active=S.pages.length-1;S.sel=-1;S.tab='layout';refresh();
     hint('Reopened. Pick a new frame and export again.');

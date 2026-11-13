@@ -230,8 +230,11 @@ are already on the TV (his wife adds photos too) or sent to the grandparents' fr
 Settings (icon only).
 - State: `S.lib` = every photo in the collection; `S.pages` = **only the slides being edited** (so all the existing
   editing code, recompose, hero, try-another, filmstrip and full screen work on that working set unchanged);
-  `S.done` = every other slide. A photo is on at most one slide (`slideMap`, `slideOf`). Deleting a slide or taking a
-  photo off a slide never deletes the photo; only Remove in the photo detail does.
+  `S.done` = every other slide. **A photo can be on several slides** (user's choice; nothing is ever taken off another
+  slide without asking): each slide holds its own copy (`placeOf`, own `pid`, pan, zoom and crop; the decoded preview
+  is shared through `PREV`), the collection entry holds hero, sent marks and the files. `slideMap` maps photo id → all
+  its slides; alt/hero re-plans key copies by `pid`. Deleting a slide or taking a photo off a slide never deletes the
+  photo; only Remove in the photo detail does.
 - **TV status per slide**: `pg.tv` + `pg.tvSig` (= `pageSig` when marked). `slideState`: `ed` (in Edit), `new`, `on`,
   `chg` (signature differs: edited or restyled since upload; the signature covers layout, placement, label choices and
   style, not the computed label, which changes while places load). A photo counts as on the TV when its slide is.
@@ -246,7 +249,8 @@ Settings (icon only).
   are set in Photos). **Make slides** (`makeSlides`) arranges the selected free photos among themselves (`plan`) and
   appends the new slides after those already in Edit, which stay untouched; while Edit has slides the bar reads "Add
   to Edit". `+` in the Edit filmstrip (`startPick`) opens Photos already in select mode ("Add to Edit"); photos already on
-  a slide are faded and can't be picked. **Done** (`finishEdit`) moves the slides to `S.done` and frees their 1000 px
+  a slide are faded but can be picked (a new copy; the other slides keep theirs). Tiles show the number of slides when
+  a photo is on more than one. **Done** (`finishEdit`) moves the slides to `S.done` and frees their 1000 px
   previews (`ensurePrev` decodes them again when a slide is edited: `toBench`, which locks them so recompose won't churn).
   Done is a big button right of the filmstrip (`#bDone`), always visible (the user couldn't find it at the strip's end).
 - **Edit tab** = the old Layout tab plus a collapsed **Frame** section (`#frmBox`, the old Frame tab: frame, background,
@@ -266,7 +270,7 @@ Settings (icon only).
 - **Add existing slides** (`+` on the Slides tab, `addSlides`): Frame Studio exports carry their rects in the XMP, so
   each cut-out is matched to the collection by picture content (`arrOf` → `sigOf`: 16×16 RGB box-averaged signatures,
   correlation; `fitPhoto` tries zoom 1 along the free axis plus zoom 1.3/1.7 on a grid, then refines; accepted above
-  .8; photos already on a slide are excluded). The slide is added as on the TV. A cut-out with no match becomes a photo
+  .8; a photo is used once per slide). The slide is added as on the TV. A cut-out with no match becomes a photo
   of its own (`ph.cut`) and is swapped for the original when it is imported later (`replaceCuts`), keeping the slide's
   TV state. Tested with generated textured photos incl. near-duplicate pairs: 20/20 right, both orders. Exports now
   also store each photo's date/zoom/pan (`photos` in the metadata) for later use. Exports without metadata (other
