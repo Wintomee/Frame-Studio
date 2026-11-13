@@ -241,14 +241,21 @@ Settings (icon only).
   the grid keeps its scroll. Bar: Make slides, ★, "Sent" per frame. Detail sheet: swipe/arrows through the filtered
   list, hero, date, location text (no coordinates; lookups start at import), TV state, frame toggles, Select (keeps
   the sheet open), Slide, red Remove.
-- **Make slides** (`makeSlides`) arranges the selected free photos with `recompose(extra)` into `S.pages` and opens
-  Edit. `+` in the Edit filmstrip (`startPick`) opens Photos already in select mode ("Add to Edit"); photos already on
+- **Import** goes straight into the collection with the new photos selected (the review step was dropped: hero etc.
+  are set in Photos). **Make slides** (`makeSlides`) arranges the selected free photos among themselves (`plan`) and
+  appends the new slides after those already in Edit, which stay untouched; while Edit has slides the bar reads "Add
+  to Edit". `+` in the Edit filmstrip (`startPick`) opens Photos already in select mode ("Add to Edit"); photos already on
   a slide are faded and can't be picked. **Done** (`finishEdit`) moves the slides to `S.done` and frees their 1000 px
   previews (`ensurePrev` decodes them again when a slide is edited: `toBench`, which locks them so recompose won't churn).
+  Done is a big button right of the filmstrip (`#bDone`), always visible (the user couldn't find it at the strip's end).
 - **Edit tab** = the old Layout tab plus a collapsed **Frame** section (`#frmBox`, the old Frame tab: frame, background,
   wall, padding; it applies to all slides, so usually skipped). "Split into 2" and "Merge" suggestions were dropped
   (user's request): dragging a photo onto another slide merges, and while dragging, dashed **new-slide slots** appear
-  between the filmstrip thumbnails (`.newslot`, `body.dragging`, `newSlideWith`).
+  between the filmstrip thumbnails (`.newslot`, `body.dragging`, `newSlideWith`); the one under the finger lights up
+  solid accent with a vibration tick, without changing size (so the target doesn't move).
+  The layout-alternatives row stays (user's choice) but without the min/keeps captions, hidden when there's only one
+  option, and drawn as bare photos on a plain ground in a tinted panel with a shuffle icon, so it isn't mistaken for
+  the filmstrip.
 - **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
   To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
   toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded

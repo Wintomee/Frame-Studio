@@ -16,14 +16,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#efefec;--surface:#fafaf8;--text:#1c1e21;--muted:#696d73;--line:#d6d7d3;--accent:#2d5b88;--accent-text:#fff;--bezel:#232527;--warn:#b5482f;--geo-ok:#2f8a4e;--geo-no:#8f2424;
+  --sug-ground:#c9cac6;--bg:#efefec;--surface:#fafaf8;--text:#1c1e21;--muted:#696d73;--line:#d6d7d3;--accent:#2d5b88;--accent-text:#fff;--bezel:#232527;--warn:#b5482f;--geo-ok:#2f8a4e;--geo-no:#8f2424;
   color-scheme:light;box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
+  :root:not([data-theme="light"]){--sug-ground:#3a3c40;--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
 }
-:root[data-theme="dark"]{--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
+:root[data-theme="dark"]{--sug-ground:#3a3c40;--bg:#161719;--surface:#202225;--text:#ebebe8;--muted:#9a9ea4;--line:#33363a;--accent:#8cb3da;--accent-text:#10202f;--bezel:#000;--warn:#e58a72;--geo-ok:#5cc285;--geo-no:#e07a7a;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
 [hidden]{display:none !important}
@@ -276,12 +276,18 @@ body:not(.t-layout) header.top{display:none}
 .frm summary .t{font-weight:800}.frm summary .s{flex:1;min-width:0;font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .frm summary::after{content:"›";color:var(--muted);font-size:18px;transition:transform .15s}.frm[open] summary::after{transform:rotate(90deg)}
 .frmin{display:grid;gap:14px;padding:0 12px 12px}
-.donebtn{flex:0 0 auto;align-self:stretch;border:0;border-radius:7px;background:var(--accent);color:var(--accent-text);font:inherit;font-weight:800;font-size:13px;padding:0 12px;cursor:pointer;margin:2px 0}
+.donebtn{flex:0 0 auto;align-self:center;height:60px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-text);font:inherit;font-weight:800;font-size:14px;padding:0 12px;cursor:pointer}
 .newslot{flex:0 0 0;width:0;opacity:0;border:1.5px dashed var(--accent);border-radius:7px;display:grid;place-items:center;color:var(--accent);transition:flex-basis .15s,opacity .15s;overflow:hidden;margin:0 -4px}
 .newslot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
-body.dragging .newslot{flex-basis:40px;opacity:.8;margin:0}
-.newslot.drop{flex-basis:64px;opacity:1;background:color-mix(in srgb,var(--accent) 15%,transparent)}
+body.dragging .newslot{flex-basis:46px;opacity:.7;margin:0}
+.newslot{transition:flex-basis .15s,opacity .15s,transform .12s,background .12s}
+body.dragging .newslot.drop{opacity:1;background:var(--accent);color:var(--accent-text);border-style:solid;transform:scale(1.15);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}
+.newslot.drop svg{stroke-width:3}
 nav.tabbar button.ico{flex:0 0 52px}
+.sugs{background:color-mix(in srgb,var(--text) 6%,var(--bg));border-radius:10px;padding:6px;align-items:center;gap:6px}
+.sugs .sugico{flex:none;width:22px;display:grid;place-items:center;color:var(--muted)}.sugs .sugico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.sugs .sug{flex:0 0 96px;border:2px solid transparent;border-radius:6px;padding:2px}.sugs .sug[aria-pressed="true"]{border-color:var(--accent)}
+.sugs .sug canvas{border-radius:2px}
 </style>
 </head>
 <body>
@@ -293,7 +299,7 @@ nav.tabbar button.ico{flex:0 0 52px}
     </div>
     <button class="ib fsx" id="bFsClose" aria-label="Exit full screen"></button>
   </div>
-  <div class="striprow"><div class="strip" id="strip"></div><div class="vstack lay-only"><button class="ib xs" id="bShuffle" aria-label="Try another arrangement for this image" title="Try another arrangement"></button><button class="ib xs" id="bFull" aria-label="Full screen" title="Full screen"></button></div></div>
+  <div class="striprow"><div class="strip" id="strip"></div><button class="donebtn" id="bDone" aria-label="Done: these slides go to Slides" hidden>Done</button><div class="vstack lay-only"><button class="ib xs" id="bShuffle" aria-label="Try another arrangement for this image" title="Try another arrangement"></button><button class="ib xs" id="bFull" aria-label="Full screen" title="Full screen"></button></div></div>
   <button id="bLock" hidden></button><button id="bDelPage" hidden></button><button id="bHelp" hidden></button>
 </div></header>
 
@@ -1431,8 +1437,12 @@ async function importFiles(files){
     hint(`Loading ${++n} of ${files.length}…`);
     try{const ph=await loadPhoto(f);ph.id=newId();await putAsset(ph);news.push(ph)}catch{}
   }
-  if(!news.length){if(!RV.list)S.importing=false;hint('Those files couldn’t be opened as images.');return}
-  hint('');openReview(news);
+  S.importing=false;
+  if(!news.length){hint('Those files couldn’t be opened as images.');return}
+  // straight into the collection, selected: hero and the rest are set there (the review step was dropped)
+  poiEnqueue(news);const have=new Set(S.lib.map(p=>p.id));news.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
+  if(!PH.pick)PH.sel.clear();news.forEach(p=>PH.sel.add(p.id));PH.flt='notv';S.tab='photos';refresh();
+  hint(`${news.length} photo${news.length>1?'s':''} added.`);
 }
 /* ---------- review: the batch before arranging (add, remove, mark heroes) ---------- */
 const RV={list:null};
@@ -1472,8 +1482,8 @@ async function makeSlides(list){
   const free=list.filter(p=>!slideOf(p.id));
   if(!free.length){hint('Those photos are already on slides.');return}
   hint('Composing…');await tick();for(const p of free){await ensurePrev(p);resetP(p)}
-  const before=S.pages.length;recompose(free);
-  const first=S.pages.findIndex(pg=>filled(pg).includes(free[0]));if(first>=0)S.active=first;
+  // arranged among themselves and added after the slides already in Edit, which stay as they are
+  const before=S.pages.length,fresh=plan(free,0).res.map(b=>pageFrom(b));S.pages.push(...fresh);if(fresh.length)S.active=before;
   PH.sel.clear();PH.pick=false;S.tab='layout';refresh();
   const skip=list.length-free.length;hint(`${S.pages.length-before>0?S.pages.length-before:'No'} new slide${S.pages.length-before===1?'':'s'}`+(skip?` · ${skip} already on a slide`:'')+'.');
   if(!localStorage_get('tour')){showTour();localStorage_set('tour','1')}
@@ -1551,7 +1561,8 @@ cv.addEventListener('pointermove',e=>{
     moveGhost(e.clientX,e.clientY);
     const el=document.elementFromPoint(e.clientX,e.clientY),th=el&&el.closest&&el.closest('.thumb'),sl=el&&el.closest&&el.closest('.newslot');
     G.dropPg=th&&th.dataset.pg!==P().id?th.dataset.pg:null;setDrop(G.dropPg);
-    G.slot=sl?+sl.dataset.at:null;document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',x===sl));
+    const ns=sl?+sl.dataset.at:null;if(ns!==G.slot&&ns!=null&&navigator.vibrate)navigator.vibrate(8); // a tick when a new-slide spot lights up
+    G.slot=ns;document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',x===sl));
     G.target=G.dropPg||sl?-1:hit(p);render();return;
   }
   if(dist(p,G.start)>8*S.k)G.moved=true;
@@ -1896,7 +1907,7 @@ function renderStrip(){
   // + picks more photos from the collection (select mode already on); Done hands the slides over to the Slides tab
   const add=document.createElement('button');add.className='addthumb';add.innerHTML=svg('plus');add.setAttribute('aria-label','Add photos from your collection');add.onclick=startPick;wrap.appendChild(add);
   if(S.pages.length){const w=document.createElement('button');w.className='addthumb';w.innerHTML=svg('rules');w.setAttribute('aria-label','Auto-arrange rules');w.title='Auto-arrange rules';w.onclick=openSheet;wrap.appendChild(w)}
-  if(S.pages.length){const d=document.createElement('button');d.className='donebtn';d.textContent='Done';d.setAttribute('aria-label','Done editing these slides');d.onclick=finishEdit;wrap.appendChild(d)}
+  $('bDone').hidden=!S.pages.length;
   // only when the selection changes: background lookups re-render the strip and must not yank it back while you scroll
   wrap.scrollLeft=keep;
   const cur=wrap.querySelector('[aria-current="true"]');if(cur&&stripAt!==S.active+':'+S.pages.length){stripAt=S.active+':'+S.pages.length;cur.scrollIntoView({block:'nearest',inline:'nearest'})}
@@ -1982,7 +1993,7 @@ function syncSelbar(){
   if(S.tab==='photos'&&(PH.sel.size||PH.pick)){
     const n=PH.sel.size;
     html=PH.pick?`<button class="ib" data-a="x" aria-label="Cancel">${svg('remove')}</button><span class="cnt">${n?n+' selected':'Tap photos to add'}</span><span class="spacer"></span><button class="btn primary" data-a="make" ${n?'':'disabled'}>${svg('slides')}Add to Edit</button>`
-      :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span><span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}Make slides</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
+      :`<button class="ib" data-a="x" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${n}</span><span class="spacer"></span><button class="btn primary" data-a="make">${svg('slides')}${S.pages.length?'Add to Edit':'Make slides'}</button><button class="btn" data-a="hero" aria-label="Hero">${svg('star')}</button>`+
         S.pf.map(f=>`<button class="btn" data-a="sent" data-f="${f.id}">${ltr(f)}Sent</button>`).join('');
   }else if(S.tab==='slides'&&SL.sel.size){
     html=`<button class="ib" data-a="sx" aria-label="Clear selection">${svg('remove')}</button><span class="cnt">${SL.sel.size}</span><span class="spacer"></span><button class="btn primary" data-a="edit">${svg('pen')}Edit</button><button class="btn" data-a="exp">${svg('export')}</button><button class="btn" data-a="tv1">${svg('tv')}On TV</button><button class="btn" data-a="tv0">Off TV</button><button class="btn danger" data-a="del">${svg('trash')}</button>`;
@@ -2117,7 +2128,7 @@ function renderSettings(){
 $('frAdd').onclick=()=>{const n=$('frName').value.trim();if(!n){$('frName').focus();return}
   S.pf.push({id:newId(),name:n,letter:($('frLetter').value.trim()||n[0]).toUpperCase(),color:PF_COLORS[S.pf.length%PF_COLORS.length]});
   $('frName').value='';$('frLetter').value='';renderSettings();saveState();hint(`${n} added.`)};
-$('setRules').onclick=openSheet;
+$('setRules').onclick=openSheet;$('bDone').onclick=()=>finishEdit();
 
 /* ---------- layout tab ---------- */
 function layoutIcon(L){
@@ -2155,6 +2166,7 @@ function layoutScores(){
   if(key!==scKey){scKey=key;ALLS=suggestionsFor(ph,R)}
   return new Map(ALLS.map(x=>[x.def,x.score]));
 }
+const SUG_BG=()=>getComputedStyle(document.body).getPropertyValue('--sug-ground').trim()||'#cfd0cc';
 function renderSugs(){
   const wrap=$('sugs'),pg=P();
   if(!pg){wrap.innerHTML='';sugKey='';return}
@@ -2165,16 +2177,18 @@ function renderSugs(){
     sugKey=mkey;layoutScores();SUGS=ALLS.filter((x,i)=>i===0||x.score.minKeep>=.6).slice(0,8);
   }
   const curSig=JSON.stringify(pg.cells)+pg.photos.map(p=>p&&p.id).join(',');
-  wrap.innerHTML='';
+  wrap.innerHTML='';wrap.hidden=SUGS.length<2; // one option is no choice
+  wrap.insertAdjacentHTML('beforeend',`<span class="sugico" title="Other layouts for this slide">${svg('shuffle')}</span>`);
   SUGS.forEach(sg=>{
     const b=document.createElement('button');b.className='sug';
     b.setAttribute('aria-pressed',JSON.stringify(sg.def.cells)+sg.photos.map(p=>p.id).join(',')===curSig);
     const sm=sg.score.minArea,kp=sg.score.minKeep;
-    b.innerHTML=`<canvas></canvas><div class="cap"><span class="${sm<(R.minArea??.08)?'w':''}">min ${Math.round(sm*100)}%</span><span>·</span><span class="${kp<R.minKeep?'w':''}">keeps ${Math.round(kp*100)}%</span></div>`;
+    b.innerHTML=`<canvas></canvas>`;
     b.setAttribute('aria-label',`Arrangement, smallest photo ${Math.round(sm*100)}% of screen`);
     b.onclick=()=>{Object.assign(pg,{cells:sg.def.cells,dx:sg.def.dx,dy:sg.def.dy,x:[...sg.L.x],y:[...sg.L.y],photos:sg.photos.map(resetP)});S.sel=-1;touched(pg);refresh()};
     wrap.appendChild(b);
-    drawInto(b.querySelector('canvas'),{L:sg.L,photos:sg.photos.map(p=>({...p,zoom:1,cx:.5,cy:.5})),pad:S.pad,bg:S.bg,frame:S.frame});
+    // drawn as bare photos on a plain ground (no frame, wall or label), so they read as options, not as slides
+    drawInto(b.querySelector('canvas'),{L:sg.L,photos:sg.photos.map(p=>({...p,zoom:1,cx:.5,cy:.5})),pad:S.pad,bg:SUG_BG(),wall:{kind:'none'},frame:'none'});
   });
   // splitting and merging are done by dragging a photo: onto another slide, or between two slides for a new one
 }
