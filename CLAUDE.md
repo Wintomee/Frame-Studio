@@ -357,8 +357,8 @@ sure it's needed; the code is kept for now. Decide with him before removing or e
   screenshots in `tests/out/`. Several past bugs were only visible there, e.g. CSS `display` overriding `[hidden]`
   (now fixed globally) and a grid item overflowing the header.
 - Bump `VERSION` in `sw.js` on every deploy.
-- **Beta**: branch `collection` (photo collection, Slides tab, TV status) is served at `/beta/`, built with
-  `node tools/build-beta.cjs <branch index.html> <version>` (own data and cache, see the branch's CLAUDE.md). The main
-  service worker ignores `/beta/`. Rebuild and commit `beta/` here after each change on the branch.
+- **Beta**: `/beta/` still holds the last beta of the collection model (now merged and live) with its own test data.
+  For the next big change, build a beta from its branch with `node tools/build-beta.cjs <branch index.html> <version>`
+  and commit `beta/` here; the main service worker ignores `/beta/`.
 - UI copy uses typographic apostrophes and quotes (’ “ ”). Code uses straight quotes.
 - Colours are CSS variables with dark-mode overrides; keep new UI on those tokens.
