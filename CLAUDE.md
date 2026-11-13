@@ -263,6 +263,14 @@ Settings (icon only).
   To upload / All, Export N (new + changed). Hold selects (Edit / Export / On TV / Off TV / Delete). Detail: On the TV
   toggle, Edit, Export, Delete. Export renders, then one "Save N images to Photos" tap (share sheet), then asks "Uploaded
   to the TV?" → `markTV`.
+- **Add existing slides** (`+` on the Slides tab, `addSlides`): Frame Studio exports carry their rects in the XMP, so
+  each cut-out is matched to the collection by picture content (`arrOf` → `sigOf`: 16×16 RGB box-averaged signatures,
+  correlation; `fitPhoto` tries zoom 1 along the free axis plus zoom 1.3/1.7 on a grid, then refines; accepted above
+  .8; photos already on a slide are excluded). The slide is added as on the TV. A cut-out with no match becomes a photo
+  of its own (`ph.cut`) and is swapped for the original when it is imported later (`replaceCuts`), keeping the slide's
+  TV state. Tested with generated textured photos incl. near-duplicate pairs: 20/20 right, both orders. Exports now
+  also store each photo's date/zoom/pan (`photos` in the metadata) for later use. Exports without metadata (other
+  apps, or if iOS stripped it) are skipped and counted in the message.
 - **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
   online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
   sizes stay a later step.
