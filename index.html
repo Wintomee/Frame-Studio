@@ -279,8 +279,10 @@ body:not(.t-layout) header.top{display:none}
 .frmin{display:grid;gap:14px;padding:0 12px 12px}
 .donebtn{flex:0 0 auto;align-self:center;height:60px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-text);font:inherit;font-weight:800;font-size:14px;padding:0 12px;cursor:pointer}
 .striprow{position:relative}
-.slotmark{position:absolute;top:0;bottom:0;width:30px;margin-left:-15px;border:2px dashed var(--accent);border-radius:6px;background:color-mix(in srgb,var(--accent) 30%,var(--bg));display:grid;place-items:center;color:var(--accent);pointer-events:none;z-index:3;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 30%,transparent)}
-.slotmark svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3}
+.newslot{display:none;flex:0 0 46px;border:1.5px dashed var(--accent);border-radius:7px;place-items:center;color:var(--accent);opacity:.75;transition:background .12s,box-shadow .12s}
+.newslot svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2}
+body.dragging .newslot{display:grid} /* all appear when the drag starts, so nothing shifts while aiming */
+body.dragging .newslot.drop{opacity:1;background:var(--accent);color:var(--accent-text);border-style:solid;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}
 body.dragging .striprow .donebtn,body.dragging .striprow .vstack{display:none}
 nav.tabbar button.ico{flex:0 0 52px}
 .sugs{background:color-mix(in srgb,var(--text) 13%,var(--bg));border-radius:12px;padding:8px;align-items:center;gap:8px}
@@ -298,7 +300,7 @@ nav.tabbar button.ico{flex:0 0 52px}
     </div>
     <button class="ib fsx" id="bFsClose" aria-label="Exit full screen"></button>
   </div>
-  <div class="striprow"><div class="strip" id="strip"></div><div class="slotmark" id="slotMark" hidden></div><button class="donebtn" id="bDone" aria-label="Done: these slides go to Slides" hidden>Done</button><div class="vstack lay-only"><button class="ib xs" id="bShuffle" aria-label="Try another arrangement for this image" title="Try another arrangement"></button><button class="ib xs" id="bFull" aria-label="Full screen" title="Full screen"></button></div></div>
+  <div class="striprow"><div class="strip" id="strip"></div><button class="donebtn" id="bDone" aria-label="Done: these slides go to Slides" hidden>Done</button><div class="vstack lay-only"><button class="ib xs" id="bShuffle" aria-label="Try another arrangement for this image" title="Try another arrangement"></button><button class="ib xs" id="bFull" aria-label="Full screen" title="Full screen"></button></div></div>
   <button id="bLock" hidden></button><button id="bDelPage" hidden></button><button id="bHelp" hidden></button>
 </div></header>
 
@@ -843,7 +845,7 @@ const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 [['bHero','star'],['bReplace','replace'],['bCrop','crop'],['bReset','reset'],['bRemove','remove'],['bFull','full'],['bFsClose','remove'],['bShuffle','shuffle'],['fsPrev','chevL'],['fsNext','chevR']].forEach(([id,k])=>$(id).innerHTML=svg(k));
 $('bReopen').innerHTML=svg('reframe')+'<span>Reopen an export to change its frame</span>';
 $('bStartOver').innerHTML=svg('trash')+'<span>Delete all photos and slides</span>';
-$('phImport').innerHTML=svg('plus');$('slotMark').innerHTML=svg('plus');$('slAdd').innerHTML=svg('plus');$('setRules').innerHTML=svg('rules')+'<span>Auto-arrange rules</span>';
+$('phImport').innerHTML=svg('plus');$('slAdd').innerHTML=svg('plus');$('setRules').innerHTML=svg('rules')+'<span>Auto-arrange rules</span>';
 $('bRecompose').innerHTML=svg('shuffle')+'<span>Try another arrangement for this image</span>';
 
 const BGS=['#ffffff','#f1ede4','#d9d7d2','#3a3b3d','#000000'];
@@ -1543,16 +1545,10 @@ function showGhost(ph,cx,cy){
   ghost.getContext('2d').drawImage(ph.prev,0,0,ghost.width,ghost.height);ghost.style.display='block';moveGhost(cx,cy);
 }
 function moveGhost(cx,cy){ghost.style.transform=`translate(${cx-ghost.offsetWidth/2}px,${cy-ghost.offsetHeight-28}px)`}
-// where a dragged photo would land in the filmstrip: the middle of a thumbnail = onto that slide; its outer quarter or
-// the gap between two = a new slide there (shown by #slotMark over the gap, so nothing in the strip moves)
+// where a dragged photo would land in the filmstrip: a dashed slot = a new slide there; a thumbnail = onto that slide
 function stripTarget(cx,cy){
-  const strip=$('strip'),r=strip.getBoundingClientRect();if(cy<r.top-12||cy>r.bottom+12||cx<r.left||cx>r.right)return {};
-  const th=[...strip.querySelectorAll('.thumb')].map(b=>({b,r:b.getBoundingClientRect()}));if(!th.length)return {};
-  const gapX=i=>i===0?th[0].r.left-2:i===th.length?th[th.length-1].r.right+2:(th[i-1].r.right+th[i].r.left)/2;
-  for(let i=0;i<th.length;i++){const q=th[i].r;if(cx<q.left||cx>q.right)continue;const f=(cx-q.left)/q.width;
-    if(f<.25)return {slot:i,x:gapX(i)};if(f>.75)return {slot:i+1,x:gapX(i+1)};return {pg:th[i].b.dataset.pg}}
-  for(let i=0;i<=th.length;i++){const a=i?th[i-1].r.right:r.left,b=i<th.length?th[i].r.left:r.right;if(cx>=a&&cx<=b)return {slot:i,x:gapX(i)}}
-  return {};
+  const el=document.elementFromPoint(cx,cy),sl=el&&el.closest&&el.closest('.newslot'),th=el&&el.closest&&el.closest('.thumb');
+  return sl?{slot:+sl.dataset.at}:th?{pg:th.dataset.pg}:{};
 }
 // near the strip's ends while dragging, it scrolls by itself so slides off screen can be reached
 let edgeT=0,edgeV=0;
@@ -1592,7 +1588,7 @@ cv.addEventListener('pointermove',e=>{
   if(G.swap){
     moveGhost(e.clientX,e.clientY);
     const t=stripTarget(e.clientX,e.clientY);G.dropPg=t.pg&&t.pg!==P().id?t.pg:null;setDrop(G.dropPg);G.slot=t.slot;
-    const mk=$('slotMark');mk.hidden=t.slot==null;if(t.slot!=null){mk.style.left=(t.x-$('strip').closest('.striprow').getBoundingClientRect().left)+'px'}
+    document.querySelectorAll('.newslot').forEach(x=>x.classList.toggle('drop',t.slot!=null&&+x.dataset.at===t.slot));
     ghost.classList.toggle('aim',t.slot!=null||!!G.dropPg);stripEdgeScroll(e.clientX,e.clientY);
     G.target=G.dropPg||t.slot!=null?-1:hit(p);render();return;
   }
@@ -1619,7 +1615,7 @@ function endPtr(e){
   clearTimeout(G.lp);
   const pg=P();
   if(G.swap){
-    ghost.style.display='none';ghost.classList.remove('aim');setDrop(null);document.body.classList.remove('dragging');$('slotMark').hidden=true;stripEdgeScroll();
+    ghost.style.display='none';ghost.classList.remove('aim');setDrop(null);document.body.classList.remove('dragging');document.querySelectorAll('.newslot.drop').forEach(x=>x.classList.remove('drop'));stripEdgeScroll();
     if(e.type==='pointerup'){
       if(G.dropPg){movePhoto(G.i,G.dropPg);G=null;return}
       if(G.slot!=null){newSlideWith(G.i,G.slot);G=null;return}
@@ -1924,13 +1920,16 @@ $('tour').onclick=e=>{if(e.target.id==='tour')$('tour').hidden=true};
 let stripAt='';
 function renderStrip(){
   const wrap=$('strip'),keep=wrap.scrollLeft;wrap.innerHTML=''; // rebuilding would reset the scroll; put it back below
+  // dashed new-slide slots between the thumbnails, shown only while a photo is dragged
+  const slot=at=>{const d=document.createElement('div');d.className='newslot';d.dataset.at=at;d.innerHTML=svg('plus');d.setAttribute('aria-hidden','true');wrap.appendChild(d)};
+  slot(0);
   S.pages.forEach((pg,i)=>{
     const b=document.createElement('button');b.className='thumb';b.dataset.pg=pg.id;b.setAttribute('aria-current',i===S.active);
     b.setAttribute('aria-label',`Image ${i+1}${pg.locked?', locked':''}`);
     b.innerHTML=`<canvas></canvas>${i===S.active?`<span class="del" role="button" aria-label="Delete this image">${svg('remove')}</span>`:''}`;
     const del=b.querySelector('.del');if(del)del.onclick=e=>{e.stopPropagation();$('bDelPage').onclick()};
     b.onclick=()=>{if(S.active===i)return;S.active=i;S.sel=-1;refresh()};
-    wrap.appendChild(b);drawInto(b.querySelector('canvas'),stOf(pg));
+    wrap.appendChild(b);drawInto(b.querySelector('canvas'),stOf(pg));slot(i+1);
   });
   // + picks more photos from the collection (select mode already on); Done hands the slides over to the Slides tab
   const add=document.createElement('button');add.className='addthumb';add.innerHTML=svg('plus');add.setAttribute('aria-label','Add photos from your collection');add.onclick=startPick;wrap.appendChild(add);
