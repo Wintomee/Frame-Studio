@@ -256,9 +256,11 @@ Settings (icon only).
 - **Edit tab** = the old Layout tab plus a collapsed **Frame** section (`#frmBox`, the old Frame tab: frame, background,
   wall, padding; it applies to all slides, so usually skipped). "Split into 2" and "Merge" suggestions were dropped
   (user's request): dragging a photo onto another slide merges, and while dragging, dashed **new-slide slots** appear
-  between the filmstrip thumbnails (`.newslot`, `body.dragging`, `newSlideWith`); the one under the finger lights up
-  solid accent without changing size (so the target doesn't move), and the dragged photo (`ghost.aim`) gets an accent
-  ring too. iOS Safari has no vibration API, so there is no haptic tick there.
+  in the filmstrip (`stripTarget`): the middle of a thumbnail = onto that slide, its outer quarter or the gap between two =
+  a new slide there (`newSlideWith`), shown by a dashed marker over the gap (`#slotMark`). Nothing in the strip moves
+  (the first version inserted slots that pushed the target aside). While dragging, Done and the small buttons hide so
+  the strip gets the full width, and it scrolls by itself near its ends (`stripEdgeScroll`). The dragged photo
+  (`ghost.aim`) gets an accent ring over any target. iOS Safari has no vibration API, so there is no haptic tick there.
   **Layouts**: one row only (user's request): an "All" chip plus the photo-preview alternatives for the current photo
   count (no min/keeps captions, cards hidden when there's only one). The old icon rows (`renderGroups`) show only after
   All. The row is a strongly tinted panel with 132 px cards drawn as bare photos on a plain ground, so it isn't
