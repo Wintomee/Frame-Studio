@@ -342,6 +342,7 @@ nav.tabbar button.ico{flex:0 0 52px}
       <p class="note">Frames you send single photos to. Each photo you mark as sent shows the frame’s letter.</p></div>
     <div class="set"><h4>Auto-arrange</h4><button class="btn" id="setRules"></button></div>
     <div class="set"><h4>Places</h4><label class="onl"><input type="checkbox" id="onlSetCb"><span>Detailed places (online)</span><span class="osm">© OpenStreetMap</span></label></div>
+    <div class="set"><h4>Share with another phone</h4><button class="btn" id="bShareColl"></button><button class="btn" id="bAddColl"></button></div>
     <div class="set"><h4>Exports</h4><button class="btn" id="bReopen"></button></div>
     <div class="set"><button class="btn danger" id="bStartOver"></button></div>
   </section>
@@ -419,6 +420,7 @@ nav.tabbar button.ico{flex:0 0 52px}
 <input type="file" id="cellFile" accept="image/*" hidden>
 <input type="file" id="exportFile" accept="image/jpeg,image/*" hidden>
 <input type="file" id="slideFile" accept="image/jpeg,image/*" multiple hidden>
+<input type="file" id="bundleFile" hidden>
 
 <script>
 /*SOLVER-START*/
@@ -845,7 +847,7 @@ const svg=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 [['bHero','star'],['bReplace','replace'],['bCrop','crop'],['bReset','reset'],['bRemove','remove'],['bFull','full'],['bFsClose','remove'],['bShuffle','shuffle'],['fsPrev','chevL'],['fsNext','chevR']].forEach(([id,k])=>$(id).innerHTML=svg(k));
 $('bReopen').innerHTML=svg('reframe')+'<span>Reopen an export to change its frame</span>';
 $('bStartOver').innerHTML=svg('trash')+'<span>Delete all photos and slides</span>';
-$('phImport').innerHTML=svg('plus');$('slAdd').innerHTML=svg('plus');$('setRules').innerHTML=svg('rules')+'<span>Auto-arrange rules</span>';
+$('phImport').innerHTML=svg('plus');$('bShareColl').innerHTML=svg('share')+'<span>Share photos and slides</span>';$('bAddColl').innerHTML=svg('plus')+'<span>Add from a file</span>';$('slAdd').innerHTML=svg('plus');$('setRules').innerHTML=svg('rules')+'<span>Auto-arrange rules</span>';
 $('bRecompose').innerHTML=svg('shuffle')+'<span>Try another arrangement for this image</span>';
 
 const BGS=['#ffffff','#f1ede4','#d9d7d2','#3a3b3d','#000000'];
@@ -1348,11 +1350,12 @@ let saveT=0;function scheduleSave(){clearTimeout(saveT);saveT=setTimeout(()=>{sa
 const flushSave=()=>{if(saveT){clearTimeout(saveT);saveT=0;saveState()}};
 addEventListener('pagehide',flushSave);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave()});
 const phRec=p=>p?{id:p.id,zoom:p.zoom,cx:p.cx,cy:p.cy,crop:p.crop||null,hero:p.hero||undefined}:null;
-const pgRec=pg=>({id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,tSel:pg.tSel,cSel:pg.cSel,on:pg.on,tv:pg.tv||undefined,tvSig:pg.tvSig,photos:pg.photos.map(phRec)});
+const pgRec=pg=>({mt:pg.mt,rt:pg.rt,id:pg.id,cells:pg.cells,dx:pg.dx,dy:pg.dy,x:pg.x,y:pg.y,locked:pg.locked,label:pg.label,lf:pg.lf,lmSel:pg.lmSel,tSel:pg.tSel,cSel:pg.cSel,on:pg.on,tv:pg.tv||undefined,tvSig:pg.tvSig,photos:pg.photos.map(phRec)});
 async function saveState(){
   try{
-    await DB.put('kv','state',{v:3,tab:S.tab,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,pf:S.pf,
-      lib:S.lib.map(p=>({id:p.id,hero:p.hero||undefined,crop:p.crop||null,sent:p.sent&&p.sent.length?p.sent:undefined,cut:p.cut||undefined})),
+    trackChanges();
+    await DB.put('kv','state',{v:3,lastShare:S.lastShare,tab:S.tab,active:S.active,pad:S.pad,bg:S.bg,wall:S.wall,frame:S.frame,fopt:S.fopt,rules:S.rules,preset:S.preset,pf:S.pf,
+      lib:S.lib.map(p=>({id:p.id,hero:p.hero||undefined,crop:p.crop||null,sent:p.sent&&p.sent.length?p.sent:undefined,cut:p.cut||undefined,mt:p.mt,rt:p.rt,aka:p.aka})),
       pages:S.pages.map(pgRec),done:S.done.map(pgRec)});
     if(S.importing||undoFn)return;
     const used=new Set([...S.lib,...(RV.list||[])].map(p=>p.id)); // the collection keeps its photos; slides only point at them
@@ -1366,7 +1369,7 @@ async function restore(){
     const ids=v3?(st.lib||[]).map(q=>q.id):[...new Set(oldPages.flatMap(pg=>pg.photos.filter(Boolean).map(q=>q.id)))];
     if(!ids.length&&!oldPages.length)return false;
     hint('Restoring your photos…');
-    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom',pf:st.pf||[]});
+    Object.assign(S,{bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:{kind:'none',depth:'medium'},frame:FRAMES[st.frame]?st.frame:'none',rules:{...S.rules,...st.rules},preset:PRESETS[st.preset]?st.preset:'custom',pf:st.pf||[],lastShare:st.lastShare||0});
     if(S.rules.dates===undefined)S.rules.dates=S.rules.order?2:1;delete S.rules.order;setPad(st.pad??S.pad);
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
     // the collection: small thumbnails only (older sets get them made once from the preview)
@@ -1378,7 +1381,7 @@ async function restore(){
       if(!tb){hint(`Updating your photos… ${++n}`);const im=await imgFrom(a.prevBlob);tb=await thumbOf(im);freeImg(im);a.thumbBlob=tb;await DB.put('assets',id,a)}
       const q={...(pgPh.get(id)||{}),...(libRec.get(id)||{})},cr=q.crop||null;
       byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:a.w,h:a.h,crop:null,hero:!!(libRec.get(id)||q).hero,
-        date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:1,cx:.5,cy:.5,sent:q.sent||[],cut:!!q.cut});
+        date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:1,cx:.5,cy:.5,sent:q.sent||[],cut:!!q.cut,mt:(libRec.get(id)||{}).mt,rt:(libRec.get(id)||{}).rt,aka:(libRec.get(id)||{}).aka});
     }
     S.lib=[...byId.values()].sort((a,b)=>a.date-b.date);
     const build=list=>{const out=[];for(const pg of list||[]){
@@ -2309,6 +2312,108 @@ async function replaceCuts(news){
 }
 $('slAdd').onclick=()=>{const f=$('slideFile');f.value='';f.click()};
 $('slideFile').addEventListener('change',e=>{const f=[...e.target.files];if(f.length)addSlides(f)});
+
+/* ---------- sharing the collection between phones (no server): one file, sent by AirDrop or Messages ----------
+   "FSBUNDL1", uint32 JSON length, the JSON (photos, slides, photo frames, optional settings), then the photo files.
+   Changes since the last share by default (tracked with mt per photo and slide). Adding a file merges: photos already
+   here (same id, or the same picture) are not added again and their marks are combined; a slide that is here already
+   is replaced only by a newer version; nothing is deleted. Photo frames are matched by name, so sent marks keep working. */
+const BUNDLE_MAGIC='FSBUNDL1';
+function trackChanges(){ // bumps mt on photos and slides whose marks or contents changed
+  const now=Date.now();
+  S.lib.forEach(p=>{const s=(p.hero?1:0)+'|'+(p.sent||[]).join(',');if(p._s===undefined){p._s=s;p.mt=p.mt||now}else if(p._s!==s){p._s=s;p.mt=now}});
+  [...S.pages,...S.done].forEach(pg=>{const s=JSON.stringify([pg.cells,pg.x,pg.y,pg.photos.map(p=>p&&[p.id,p.zoom,p.cx,p.cy,p.crop]),pg.label,pg.lf,pg.lmSel,pg.tSel,pg.cSel,pg.tv?1:0,pg.tvSig]);if(pg._s===undefined){pg._s=s;pg.mt=pg.mt||now}else if(pg._s!==s){pg._s=s;pg.mt=now}});
+}
+function shareSet(changesOnly){
+  trackChanges();const last=changesOnly&&S.lastShare||0,fresh=x=>!changesOnly||x.mt>last&&!(x.rt>=x.mt),slides=[...S.done,...S.pages].filter(fresh);
+  const ids=new Set(S.lib.filter(fresh).map(p=>p.id));
+  slides.forEach(pg=>filled(pg).forEach(q=>{const p=S.lib.find(x=>x.id===q.id);if(p&&(!last||!(p.rt||p.mt<=last)))ids.add(p.id)})); // photos the other phone may not have yet
+  return {photos:S.lib.filter(p=>ids.has(p.id)),slides};
+}
+async function buildBundle(changesOnly,withSettings){
+  const {photos,slides}=shareSet(changesOnly),parts=[],meta=[];let off=0;
+  const put=b=>{if(!b)return null;const r=[off,b.size,b.type||'image/jpeg'];parts.push(b);off+=b.size;return r};
+  for(let i=0;i<photos.length;i++){const p=photos[i];hint(`Packing ${i+1} of ${photos.length}…`);const a=await DB.get('assets',p.id).catch(()=>null);if(!a)continue;
+    meta.push({id:p.id,date:p.date,lat:p.lat,lon:p.lon,w:a.w,h:a.h,hero:!!p.hero,sent:p.sent||[],cut:!!p.cut,mt:p.mt,file:put(a.file),prev:put(a.prevBlob),thumb:put(a.thumbBlob)})}
+  const aka={};S.lib.forEach(p=>{if(p.aka&&p.aka.length)aka[p.id]=p.aka}); // the same photo added on both phones has two ids
+  const json={app:'frame-studio',v:1,created:Date.now(),pf:S.pf,aka,photos:meta,slides:slides.map(pg=>({...pgRec(pg),mt:pg.mt,st:slideState(pg)})),
+    settings:withSettings?{frame:S.frame,bg:S.bg,wall:S.wall,pad:S.pad,fopt:S.fopt,rules:S.rules,preset:S.preset}:undefined};
+  const js=new TextEncoder().encode(JSON.stringify(json)),head=new Uint8Array(12);head.set(new TextEncoder().encode(BUNDLE_MAGIC));new DataView(head.buffer).setUint32(8,js.length);
+  hint('');return {blob:new Blob([head,js,...parts],{type:'application/octet-stream'}),photos:meta.length,slides:slides.length};
+}
+function openShareSheet(){
+  const ch=shareSet(true),all=shareSet(false),mb=l=>l.photos.length?Math.max(1,Math.round(l.photos.length*1.4)):'<1';
+  openModal(`<h3>Share with another phone</h3>
+    <label class="rule"><input type="radio" name="shm" id="shChg" ${S.lastShare?'checked':''}><span>Changes since the last share<br><span class="note">${ch.photos.length} photos · ${ch.slides.length} slides · ~${mb(ch)} MB</span></span></label>
+    <label class="rule"><input type="radio" name="shm" id="shAll" ${S.lastShare?'':'checked'}><span>Everything<br><span class="note">${all.photos.length} photos · ${all.slides.length} slides · ~${mb(all)} MB</span></span></label>
+    <label class="rule"><input type="checkbox" id="shSet"><span>Settings too (frame look and arrange rules)</span></label>
+    <div class="btns"><button class="btn primary" id="shGo">${svg('share')}Create file</button><button class="btn" id="shNo">Cancel</button></div>`);
+  $('shNo').onclick=closeModal;
+  $('shGo').onclick=async()=>{
+    const b=await buildBundle($('shChg').checked,$('shSet').checked),d=new Date(),z=v=>String(v).padStart(2,'0'),t=Date.now();
+    const file=new File([b.blob],`frame-studio-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.fsbundle`,{type:'application/octet-stream'});
+    // sharing needs a fresh tap after the packing
+    openModal(`<h3>File ready</h3><p class="note">${b.photos} photos · ${b.slides} slides · ${Math.round(file.size/1048576)||1} MB. Send it by AirDrop or Messages; on the other phone: Settings → Add from a file.</p>
+      <div class="btns"><button class="btn primary" id="shSend">${svg('share')}Send</button><button class="btn" id="shNo2">Cancel</button></div>`);
+    $('shNo2').onclick=closeModal;
+    $('shSend').onclick=async()=>{let ok=false;
+      if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file]});ok=true}catch(e){if(e&&e.name==='AbortError')return}}
+      if(!ok){const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;a.click();ok=true}
+      S.lastShare=t;scheduleSave();closeModal();hint('Shared.')};
+  };
+}
+async function addBundle(file){
+  try{
+    const head=new Uint8Array(await file.slice(0,12).arrayBuffer());
+    if(new TextDecoder().decode(head.slice(0,8))!==BUNDLE_MAGIC){hint('That isn’t a Frame Studio file.');return}
+    const len=new DataView(head.buffer).getUint32(8),json=JSON.parse(await file.slice(12,12+len).text()),base=12+len;
+    const part=r=>r?file.slice(base+r[0],base+r[0]+r[1],r[2]):null;
+    const undo={lib:[...S.lib],done:S.done.map(snapPage),pages:S.pages.map(snapPage),pf:[...S.pf]};
+    // photo frames: same id, else same name; new ones are added
+    const fmap=new Map();
+    for(const f of json.pf||[]){const m=S.pf.find(x=>x.id===f.id)||S.pf.find(x=>x.name.trim().toLowerCase()===f.name.trim().toLowerCase());
+      if(m)fmap.set(f.id,m.id);else{S.pf.push({...f,color:f.color||PF_COLORS[S.pf.length%PF_COLORS.length]});fmap.set(f.id,f.id)}}
+    if(json.settings){const st=json.settings;Object.assign(S,{frame:FRAMES[st.frame]?st.frame:S.frame,bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:S.wall,rules:{...S.rules,...st.rules},preset:st.preset||S.preset});
+      if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});setPad(st.pad??S.pad)}
+    // photos
+    const pmap=new Map(),news=[],aka=json.aka||{};let same=0;
+    const known=id=>S.lib.find(p=>p.id===id||(p.aka||[]).includes(id)||(aka[id]||[]).includes(p.id)||(p.aka||[]).some(x=>(aka[id]||[]).includes(x)));
+    for(let i=0;i<(json.photos||[]).length;i++){
+      const q=json.photos[i];hint(`Adding ${i+1} of ${json.photos.length}…`);
+      const sent=(q.sent||[]).map(id=>fmap.get(id)||id);
+      let have=known(q.id);
+      if(!have){const a=q.w/q.h,cands=S.lib.filter(p=>p.date&&q.date&&Math.abs(p.date-q.date)<=2000&&Math.abs(Math.log((p.ow??p.w)/(p.oh??p.h)/a))<.015);
+        if(cands.length&&q.thumb){const im=await imgFrom(part(q.thumb)),g=arrOf(im,0,0,im.naturalWidth,im.naturalHeight),sg=sigOf(g,0,0,g.w,g.h);freeImg(im);
+          for(const p of cands){const pg2=await photoArr(p);if(pg2&&corr(sg,sigOf(pg2,0,0,pg2.w,pg2.h))>.97){have=p;have.aka=[...new Set([...(p.aka||[]),q.id])];break}}S.lib.forEach(p=>delete p._g)}}
+      if(have){pmap.set(q.id,have.id);same++;const mine=(have.hero?1:0)+'|'+(have.sent||[]).join(',');have.hero=have.hero||q.hero;have.sent=[...new Set([...(have.sent||[]),...sent])];
+        if(have._s===undefined||mine===have._s&&(!have.mt||have.mt<=(S.lastShare||0)||have.rt>=have.mt)){have._s=undefined;have.rt=have.mt=Math.max(have.mt||0,q.mt||0)}continue}
+      const file2=part(q.file),prev=part(q.prev),thumb=part(q.thumb);
+      await DB.put('assets',q.id,{file:file2,prevBlob:prev,thumbBlob:thumb,w:q.w,h:q.h,date:q.date,lat:q.lat,lon:q.lon});
+      const ph={id:q.id,file:file2,prev:null,thumb:URL.createObjectURL(thumb),ow:q.w,oh:q.h,w:q.w,h:q.h,crop:null,hero:!!q.hero,date:q.date,lat:q.lat??null,lon:q.lon??null,zoom:1,cx:.5,cy:.5,sent,cut:!!q.cut,mt:q.mt,rt:q.mt};
+      S.lib.push(ph);news.push(ph);pmap.set(q.id,q.id);
+    }
+    S.lib.sort((a,b)=>a.date-b.date);
+    // slides: newer wins; ones being edited here are left alone
+    const keyOf=pg=>JSON.stringify(pg.cells)+':'+pg.photos.map(p=>p&&p.id).join(',');let added=0,updated=0,kept=0;
+    let missing=0;
+    for(const r of json.slides||[]){
+      const photos=r.photos.map(q=>{const L=q&&(S.lib.find(p=>p.id===pmap.get(q.id))||known(q.id));return L?placeOf(L,q):undefined});
+      if(r.photos.some((q,i)=>q&&!photos[i])){missing++;continue}
+      const pg=migrateLabel({...r,photos,locked:true}),mine=[...S.done,...S.pages].find(x=>x.id===r.id)||[...S.done,...S.pages].find(x=>keyOf(x)===keyOf(pg));
+      pg.rt=pg.mt;delete pg.st;if(r.tv&&r.st==='on')pg.tvSig=pageSig(pg); // on the TV there = on the TV here, whatever the style
+      if(!mine){S.done.push(pg);added++;continue}
+      if(editing(mine)||(mine.mt||0)>=(r.mt||0)){kept++;continue}
+      const id=mine.id;Object.assign(mine,pg,{id,_s:undefined});updated++;
+    }
+    S.done.sort((a,b)=>firstDate(a)-firstDate(b));trackChanges();poiEnqueue(news,false,true);
+    S.tab='photos';PH.flt='all';refresh();
+    toast([`${news.length} photo${news.length===1?'':'s'} added`,same?`${same} already here`:'',`${added} slide${added===1?'':'s'} added`,updated?`${updated} updated`:'',kept?`${kept} kept (yours is newer)`:'',missing?`${missing} skipped (photos missing: share Everything)`:''].filter(Boolean).join(' · ')+'.',
+      ()=>{S.lib=undo.lib;S.done=undo.done;S.pages=undo.pages;S.pf=undo.pf});
+  }catch(e){console.error(e);hint('Couldn’t read that file.')}
+}
+$('bShareColl').onclick=openShareSheet;
+$('bAddColl').onclick=()=>{const f=$('bundleFile');f.value='';f.click()};
+$('bundleFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)addBundle(f)});
 
 /* ---------- Settings tab ---------- */
 function renderSettings(){

@@ -294,6 +294,19 @@ Settings (icon only).
   they go straight to Frameo, AirDrop or Messages (user's idea: send the photos a frame is missing). Afterwards one tap
   marks them as sent to a photo frame. Shared copies of photos over 3840 px lack the original EXIF (date, GPS), since
   the 4K copy is re-encoded.
+- **Sharing between phones** (user and his wife, no server; Settings → "Share photos and slides" / "Add from a file"):
+  one `.fsbundle` file sent by AirDrop or Messages (`buildBundle`: "FSBUNDL1", uint32 JSON length, JSON, then the 4K
+  copy, preview and thumbnail of each photo; read back with `file.slice`, never loaded whole). Default "Changes since
+  the last share" (`S.lastShare`; `trackChanges` bumps `mt` on photos when hero/sent change and on slides when layout,
+  placement, labels or TV state change; style is left out). Received items keep `rt` = their `mt`, so they don't bounce
+  back. A changed slide takes along only photos the other phone may not have. "Everything" sends all (also a backup).
+  "Settings too" adds frame look and rules. Photo-frame definitions always travel, matched by name, and sent letters are
+  remapped. Merging (`addBundle`) never deletes: photos match by id, by `aka` (the same photo imported on both phones has
+  two ids; the match is remembered and sent along) or by picture (`dupOf` test); hero and sent marks are combined.
+  Slides match by id or layout + photos; the newer `mt` wins, slides in Edit here are left alone. A slide "on the TV" at
+  the sender is on the TV here too (`tvSig` re-signed). Slides whose photos are missing are skipped ("share
+  Everything"). Undo via the toast. Tested with two browser contexts; not yet on real iPhones (whether iOS share accepts
+  an `application/octet-stream` file; otherwise it falls back to a download into Files).
 - **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
   online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
   sizes stay a later step.
