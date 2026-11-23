@@ -238,8 +238,8 @@ Settings (icon only).
 - **TV status per slide**: `pg.tv` + `pg.tvSig` (= `pageSig` when marked). `slideState`: `ed` (in Edit), `new`, `on`,
   `chg` (signature differs: edited or restyled since upload; the signature covers layout, placement, label choices and
   style, not the computed label, which changes while places load). A photo counts as on the TV when its slide is.
-- **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on TV
-  (default) / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
+- **Photos tab**: grid of 400 px thumbnails (`thumbBlob` in the asset, `ph.thumb` object URL), filters Not on slides
+  (default: in no slide of the Slides tab, Edit included) / Not on TV / All / Hero / Not sent per photo frame. Badges: ★ hero, bottom-left pen (being edited) / TV / slide icon,
   bottom-right a coloured letter per photo frame it was sent to (user wanted letters, not plain dots). Gestures are one
   delegated handler per grid (`gridSelect`, shared with Slides), modelled on the iPhone Photos app: **hold** starts selecting; in
   select mode tap toggles and hold opens the detail; a **sideways swipe** in select mode selects every photo between

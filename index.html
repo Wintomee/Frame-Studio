@@ -1472,7 +1472,7 @@ async function importFiles(files){
   // straight into the collection, selected: hero and the rest are set there (the review step was dropped)
   poiEnqueue(news,false,true);const have=new Set(S.lib.map(p=>p.id));news.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
   const rc=await replaceCuts(news);
-  if(!PH.pick)PH.sel.clear();[...news,...dups].forEach(p=>{if(!slideOf(p.id))PH.sel.add(p.id)});PH.flt='notv';S.tab='photos';refresh();
+  if(!PH.pick)PH.sel.clear();[...news,...dups].forEach(p=>{if(!slideOf(p.id))PH.sel.add(p.id)});PH.flt='nosl';S.tab='photos';refresh();
   const nd=new Set(dups.map(p=>p.id)).size;
   hint([news.length?`${news.length} photo${news.length>1?'s':''} added`:'No new photos',nd?`${nd} already in Photos`:'',rc?`${rc} matched to slides you added`:''].filter(Boolean).join(' · ')+'.');
 }
@@ -1506,7 +1506,7 @@ $('rvGo').onclick=()=>{
   const l=RV.list;RV.list=null;$('review').hidden=true;S.importing=false;
   const have=new Set(S.lib.map(p=>p.id));l.forEach(p=>{if(!have.has(p.id))S.lib.push(p)});S.lib.sort((a,b)=>a.date-b.date);
   if(PH.pick){l.forEach(p=>PH.sel.add(p.id))}else{PH.sel=new Set(l.map(p=>p.id))}
-  PH.flt='notv';S.tab='photos';refresh();
+  PH.flt='nosl';S.tab='photos';refresh();
   hint(`${l.length} photo${l.length>1?'s':''} added.`);
 };
 // selected photos → slides on the Edit tab, arranged with the current rules (like auto-arrange used to do on import)
@@ -1990,7 +1990,7 @@ function holdable(el,onHold,onTap){let t=0,held=false,x0=0,y0=0;
   el.addEventListener('click',()=>{if(held){held=false;return}onTap()})}
 
 /* ---------- where photos are: a photo is on at most one slide ---------- */
-const PH={sel:new Set(),pick:false,flt:'notv'},SL={sel:new Set(),flt:'todo'};
+const PH={sel:new Set(),pick:false,flt:'nosl'},SL={sel:new Set(),flt:'todo'};
 const PF_COLORS=['#c27a2c','#8a4fa3','#3f8f8a','#b0475e','#4a5fc1','#6b7f2a'];
 function slideMap(){const m=new Map();[...S.pages,...S.done].forEach(pg=>filled(pg).forEach(p=>{const a=m.get(p.id);if(a){if(!a.includes(pg))a.push(pg)}else m.set(p.id,[pg])}));return m}
 const slideOf=id=>(slideMap().get(id)||[])[0]; // the first: one in Edit if there is one
@@ -2006,12 +2006,14 @@ const ltr=f=>`<span class="ltr" style="background:${f.color}">${esc(f.letter)}</
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- Photos tab ---------- */
-function phList(sm=slideMap()){const f=PH.flt;return S.lib.filter(p=>f==='all'||(f==='notv'?!onTVp(p,sm):f==='hero'?p.hero:!(p.sent||[]).includes(f)))}
+// one predicate per Photos filter; 'nosl' (Not on slides) = in no slide of the Slides tab, Edit included
+const phMatch=(p,f,sm)=>f==='all'||(f==='nosl'?!sm.has(p.id):f==='notv'?!onTVp(p,sm):f==='hero'?p.hero:!(p.sent||[]).includes(f));
+function phList(sm=slideMap()){const f=PH.flt;return S.lib.filter(p=>phMatch(p,f,sm))}
 function renderPhotos(){
   const sm=slideMap(),empty=!S.lib.length;$('phEmpty').hidden=!empty;$('phFilters').hidden=empty;
-  if(!S.pf.some(f=>f.id===PH.flt)&&!['notv','all','hero'].includes(PH.flt))PH.flt='notv';
-  const cnt=k=>S.lib.filter(p=>k==='all'||(k==='notv'?!onTVp(p,sm):k==='hero'?p.hero:!(p.sent||[]).includes(k))).length;
-  const chips=[['notv','Not on TV'],['all','All'],['hero',svg('star')+'Hero'],...S.pf.map(f=>[f.id,ltr(f)+'Not sent'])];
+  if(!S.pf.some(f=>f.id===PH.flt)&&!['nosl','notv','all','hero'].includes(PH.flt))PH.flt='nosl';
+  const cnt=k=>S.lib.filter(p=>phMatch(p,k,sm)).length;
+  const chips=[['nosl','Not on slides'],['notv','Not on TV'],['all','All'],['hero',svg('star')+'Hero'],...S.pf.map(f=>[f.id,ltr(f)+'Not sent'])];
   $('phFilters').innerHTML=chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${PH.flt===k}">${l} <span class="n">${cnt(k)}</span></button>`).join('');
   $('phFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{PH.flt=b.dataset.f;renderPhotos()});
   const g=$('phGrid');g.innerHTML='';
@@ -2079,7 +2081,7 @@ function syncSlideSel(){$('slGrid').querySelectorAll('.scard').forEach(c=>c.clas
 gridSelect($('slGrid'),'.scard',{sel:()=>SL.sel,setSel:s=>{SL.sel=s},selMode:()=>SL.sel.size>0,
   tap:id=>{if(SL.sel.size){SL.sel.has(id)?SL.sel.delete(id):SL.sel.add(id);syncSlideSel()}else{const pg=slideById(id);if(pg)openSlide(pg)}},
   open:id=>{const pg=slideById(id);if(pg)openSlide(pg)},sync:syncSlideSel});
-function startPick(){PH.pick=true;PH.sel.clear();PH.flt='notv';S.tab='photos';syncTabs()}
+function startPick(){PH.pick=true;PH.sel.clear();PH.flt='nosl';S.tab='photos';syncTabs()}
 function syncSelbar(){
   const bar=$('selbar');let html='';
   if(S.tab==='photos'&&(PH.sel.size||PH.pick)){
