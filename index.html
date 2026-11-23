@@ -1371,7 +1371,13 @@ async function saveState(){
   }catch{}
 }
 // a stored blob iOS can no longer read (e.g. its source file is gone) throws here
-async function blobOk(b){if(!b)return false;try{await b.slice(0,16).arrayBuffer();return true}catch{return false}}
+async function blobOk(b){if(!b||!b.size)return false;try{await b.slice(0,16).arrayBuffer();return true}catch{return false}}
+// an asset is fine only if its thumbnail really decodes and its files can be read (a dangling blob can still report a size)
+async function assetOk(a){
+  if(!a||!(await blobOk(a.file))||!(await blobOk(a.prevBlob)))return false;
+  try{const bm=await createImageBitmap(a.thumbBlob||a.prevBlob);bm.close&&bm.close();return true}catch{}
+  try{const im=await imgFrom(a.thumbBlob||a.prevBlob);freeImg(im);return true}catch{return false}
+}
 async function restore(){
   try{
     const st=await DB.get('kv','state');if(!st)return false;
@@ -1387,7 +1393,7 @@ async function restore(){
     const byId=new Map();let n=0,nLost=0;
     for(const id of ids){
       const a=await DB.get('assets',id);if(!a||!a.prevBlob)continue;
-      let tb=a.thumbBlob;const lost=!(await blobOk(tb||a.prevBlob));
+      let tb=a.thumbBlob;const lost=!(await assetOk(a));
       if(!tb){hint(`Updating your photos… ${++n}`);const im=await imgFrom(a.prevBlob);tb=await thumbOf(im);freeImg(im);a.thumbBlob=tb;await DB.put('assets',id,a)}
       const q={...(pgPh.get(id)||{}),...(libRec.get(id)||{})},cr=q.crop||null;
       byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:a.w,h:a.h,crop:null,hero:!!(libRec.get(id)||q).hero,
@@ -2408,7 +2414,7 @@ async function addBundle(file){
       if(!have){const a=q.w/q.h,cands=S.lib.filter(p=>p.date&&q.date&&Math.abs(p.date-q.date)<=2000&&Math.abs(Math.log((p.ow??p.w)/(p.oh??p.h)/a))<.015);
         if(cands.length&&q.thumb){const im=await imgFrom(await part(q.thumb)),g=arrOf(im,0,0,im.naturalWidth,im.naturalHeight),sg=sigOf(g,0,0,g.w,g.h);freeImg(im);
           for(const p of cands){const pg2=await photoArr(p);if(pg2&&corr(sg,sigOf(pg2,0,0,pg2.w,pg2.h))>.97){have=p;have.aka=[...new Set([...(p.aka||[]),q.id])];break}}S.lib.forEach(p=>delete p._g)}}
-      if(have&&have.lost){ // its picture data was lost on this phone: take it from the file
+      if(have&&(have.lost||!(await assetOk(await DB.get('assets',have.id).catch(()=>null))))){ // its picture data was lost on this phone: take it from the file
         const [f2,pv,tb]=[await part(q.file),await part(q.prev),await part(q.thumb)];
         if(tb){await DB.put('assets',have.id,{file:f2,prevBlob:pv,thumbBlob:tb,w:q.w,h:q.h,date:q.date,lat:q.lat,lon:q.lon});
           const url=URL.createObjectURL(tb);have.file=f2;have.thumb=url;delete have.lost;repaired++;PREV.delete(have.id);

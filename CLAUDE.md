@@ -311,7 +311,8 @@ Settings (icon only).
   the sender is on the TV here too (`tvSig` re-signed). Slides whose photos are missing are skipped ("share
   Everything"). Undo via the toast. **Bundle parts are copied into new blobs** (`part` reads the bytes): iOS stored a `file.slice()`
   as a pointer into the picked file, which vanished later, so shared photos came back as "?" tiles and black slides.
-  Restore marks photos whose stored blob can't be read as `lost` (`blobOk`) and says how many; adding a bundle that
+  Restore marks photos whose stored files can't be read or whose thumbnail won't decode as `lost` (`assetOk`; a
+  dangling blob can still report a size) and says how many; adding a bundle re-checks every matched photo the same way and
   contains them rewrites their assets ("N repaired"). Tested with two browser contexts; not yet on real iPhones (whether iOS share accepts
   an `application/octet-stream` file; otherwise it falls back to a download into Files).
 - **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
