@@ -1370,6 +1370,8 @@ async function saveState(){
     for(const k of await DB.keys('assets'))if(!used.has(k))await DB.del('assets',k);
   }catch{}
 }
+// a stored blob iOS can no longer read (e.g. its source file is gone) throws here
+async function blobOk(b){if(!b)return false;try{await b.slice(0,16).arrayBuffer();return true}catch{return false}}
 async function restore(){
   try{
     const st=await DB.get('kv','state');if(!st)return false;
@@ -1382,14 +1384,15 @@ async function restore(){
     if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});
     // the collection: small thumbnails only (older sets get them made once from the preview)
     const libRec=new Map((st.lib||[]).map(q=>[q.id,q])),pgPh=new Map(oldPages.flatMap(pg=>pg.photos.filter(Boolean).map(q=>[q.id,q])));
-    const byId=new Map();let n=0;
+    const byId=new Map();let n=0,nLost=0;
     for(const id of ids){
       const a=await DB.get('assets',id);if(!a||!a.prevBlob)continue;
-      let tb=a.thumbBlob;
+      let tb=a.thumbBlob;const lost=!(await blobOk(tb||a.prevBlob));
       if(!tb){hint(`Updating your photos… ${++n}`);const im=await imgFrom(a.prevBlob);tb=await thumbOf(im);freeImg(im);a.thumbBlob=tb;await DB.put('assets',id,a)}
       const q={...(pgPh.get(id)||{}),...(libRec.get(id)||{})},cr=q.crop||null;
       byId.set(id,{id,file:a.file,prev:null,thumb:URL.createObjectURL(tb),ow:a.w,oh:a.h,w:a.w,h:a.h,crop:null,hero:!!(libRec.get(id)||q).hero,
         date:a.date,lat:a.lat??null,lon:a.lon??null,zoom:1,cx:.5,cy:.5,sent:q.sent||[],cut:!!q.cut,mt:(libRec.get(id)||{}).mt,rt:(libRec.get(id)||{}).rt,aka:(libRec.get(id)||{}).aka});
+      if(lost){byId.get(id).lost=true;nLost++}
     }
     S.lib=[...byId.values()].sort((a,b)=>a.date-b.date);
     const build=list=>{const out=[];for(const pg of list||[]){
@@ -1399,7 +1402,8 @@ async function restore(){
     S.done=build(v3?st.done:st.pages);S.pages=v3?build(st.pages):[];
     for(const ph of S.pages.flatMap(filled))await ensurePrev(ph);
     S.active=clamp(st.active||0,0,Math.max(0,S.pages.length-1));
-    S.tab=S.pages.length?(st.tab||'layout'):(st.tab&&st.tab!=='layout'?st.tab:'photos');hint('');
+    S.tab=S.pages.length?(st.tab||'layout'):(st.tab&&st.tab!=='layout'?st.tab:'photos');
+    hint(nLost?`${nLost} photo${nLost>1?'s':''} lost ${nLost>1?'their':'its'} picture on this phone. Share “Everything” from the other phone again to restore ${nLost>1?'them':'it'}.`:'');
     return S.lib.length>0;
   }catch(e){console.error(e);return false}
 }
@@ -2385,7 +2389,8 @@ async function addBundle(file){
     const head=new Uint8Array(await file.slice(0,12).arrayBuffer());
     if(new TextDecoder().decode(head.slice(0,8))!==BUNDLE_MAGIC){hint('That isn’t a Frame Studio file.');return}
     const len=new DataView(head.buffer).getUint32(8),json=JSON.parse(await file.slice(12,12+len).text()),base=12+len;
-    const part=r=>r?file.slice(base+r[0],base+r[0]+r[1],r[2]):null;
+    // copy the bytes: on iOS a stored file.slice() is only a pointer into the picked file, which disappears later
+    const part=async r=>r?new Blob([await file.slice(base+r[0],base+r[0]+r[1]).arrayBuffer()],{type:r[2]}):null;
     const undo={lib:[...S.lib],done:S.done.map(snapPage),pages:S.pages.map(snapPage),pf:[...S.pf]};
     // photo frames: same id, else same name; new ones are added
     const fmap=new Map();
@@ -2394,18 +2399,24 @@ async function addBundle(file){
     if(json.settings){const st=json.settings;Object.assign(S,{frame:FRAMES[st.frame]?st.frame:S.frame,bg:st.bg||S.bg,wall:WALLS[st.wall?.kind]?st.wall:S.wall,rules:{...S.rules,...st.rules},preset:st.preset||S.preset});
       if(st.fopt)for(const k in S.fopt)Object.assign(S.fopt[k],st.fopt[k]||{});setPad(st.pad??S.pad)}
     // photos
-    const pmap=new Map(),news=[],aka=json.aka||{};let same=0;
+    const pmap=new Map(),news=[],aka=json.aka||{};let same=0,repaired=0;
     const known=id=>S.lib.find(p=>p.id===id||(p.aka||[]).includes(id)||(aka[id]||[]).includes(p.id)||(p.aka||[]).some(x=>(aka[id]||[]).includes(x)));
     for(let i=0;i<(json.photos||[]).length;i++){
       const q=json.photos[i];hint(`Adding ${i+1} of ${json.photos.length}…`);
       const sent=(q.sent||[]).map(id=>fmap.get(id)||id);
       let have=known(q.id);
       if(!have){const a=q.w/q.h,cands=S.lib.filter(p=>p.date&&q.date&&Math.abs(p.date-q.date)<=2000&&Math.abs(Math.log((p.ow??p.w)/(p.oh??p.h)/a))<.015);
-        if(cands.length&&q.thumb){const im=await imgFrom(part(q.thumb)),g=arrOf(im,0,0,im.naturalWidth,im.naturalHeight),sg=sigOf(g,0,0,g.w,g.h);freeImg(im);
+        if(cands.length&&q.thumb){const im=await imgFrom(await part(q.thumb)),g=arrOf(im,0,0,im.naturalWidth,im.naturalHeight),sg=sigOf(g,0,0,g.w,g.h);freeImg(im);
           for(const p of cands){const pg2=await photoArr(p);if(pg2&&corr(sg,sigOf(pg2,0,0,pg2.w,pg2.h))>.97){have=p;have.aka=[...new Set([...(p.aka||[]),q.id])];break}}S.lib.forEach(p=>delete p._g)}}
+      if(have&&have.lost){ // its picture data was lost on this phone: take it from the file
+        const [f2,pv,tb]=[await part(q.file),await part(q.prev),await part(q.thumb)];
+        if(tb){await DB.put('assets',have.id,{file:f2,prevBlob:pv,thumbBlob:tb,w:q.w,h:q.h,date:q.date,lat:q.lat,lon:q.lon});
+          const url=URL.createObjectURL(tb);have.file=f2;have.thumb=url;delete have.lost;repaired++;PREV.delete(have.id);
+          [...S.done,...S.pages].forEach(pg=>filled(pg).forEach(c=>{if(c.id===have.id){c.file=f2;c.thumb=url;delete c.lost}}))}
+      }
       if(have){pmap.set(q.id,have.id);same++;const mine=(have.hero?1:0)+'|'+(have.sent||[]).join(',');have.hero=have.hero||q.hero;have.sent=[...new Set([...(have.sent||[]),...sent])];
         if(have._s===undefined||mine===have._s&&(!have.mt||have.mt<=(S.lastShare||0)||have.rt>=have.mt)){have._s=undefined;have.rt=have.mt=Math.max(have.mt||0,q.mt||0)}continue}
-      const file2=part(q.file),prev=part(q.prev),thumb=part(q.thumb);
+      const file2=await part(q.file),prev=await part(q.prev),thumb=await part(q.thumb);
       await DB.put('assets',q.id,{file:file2,prevBlob:prev,thumbBlob:thumb,w:q.w,h:q.h,date:q.date,lat:q.lat,lon:q.lon});
       const ph={id:q.id,file:file2,prev:null,thumb:URL.createObjectURL(thumb),ow:q.w,oh:q.h,w:q.w,h:q.h,crop:null,hero:!!q.hero,date:q.date,lat:q.lat??null,lon:q.lon??null,zoom:1,cx:.5,cy:.5,sent,cut:!!q.cut,mt:q.mt,rt:q.mt};
       S.lib.push(ph);news.push(ph);pmap.set(q.id,q.id);
@@ -2423,9 +2434,10 @@ async function addBundle(file){
       if(editing(mine)||(mine.mt||0)>=(r.mt||0)){kept++;continue}
       const id=mine.id;Object.assign(mine,pg,{id,_s:undefined});updated++;
     }
+    if(repaired)CARD.clear();
     S.done.sort((a,b)=>firstDate(a)-firstDate(b));trackChanges();poiEnqueue(news,false,true);
     S.tab='photos';PH.flt='all';refresh();
-    toast([`${news.length} photo${news.length===1?'':'s'} added`,same?`${same} already here`:'',`${added} slide${added===1?'':'s'} added`,updated?`${updated} updated`:'',kept?`${kept} kept (yours is newer)`:'',missing?`${missing} skipped (photos missing: share Everything)`:''].filter(Boolean).join(' · ')+'.',
+    toast([`${news.length} photo${news.length===1?'':'s'} added`,same?`${same} already here`:'',repaired?`${repaired} repaired`:'',`${added} slide${added===1?'':'s'} added`,updated?`${updated} updated`:'',kept?`${kept} kept (yours is newer)`:'',missing?`${missing} skipped (photos missing: share Everything)`:''].filter(Boolean).join(' · ')+'.',
       ()=>{S.lib=undo.lib;S.done=undo.done;S.pages=undo.pages;S.pf=undo.pf});
   }catch(e){console.error(e);hint('Couldn’t read that file.')}
 }

@@ -309,7 +309,10 @@ Settings (icon only).
   two ids; the match is remembered and sent along) or by picture (`dupOf` test); hero and sent marks are combined.
   Slides match by id or layout + photos; the newer `mt` wins, slides in Edit here are left alone. A slide "on the TV" at
   the sender is on the TV here too (`tvSig` re-signed). Slides whose photos are missing are skipped ("share
-  Everything"). Undo via the toast. Tested with two browser contexts; not yet on real iPhones (whether iOS share accepts
+  Everything"). Undo via the toast. **Bundle parts are copied into new blobs** (`part` reads the bytes): iOS stored a `file.slice()`
+  as a pointer into the picked file, which vanished later, so shared photos came back as "?" tiles and black slides.
+  Restore marks photos whose stored blob can't be read as `lost` (`blobOk`) and says how many; adding a bundle that
+  contains them rewrites their assets ("N repaired"). Tested with two browser contexts; not yet on real iPhones (whether iOS share accepts
   an `application/octet-stream` file; otherwise it falls back to a download into Files).
 - **Settings**: photo frames (name, letter, colour; `S.pf`, `ph.sent`), Auto-arrange rules (the existing sheet), places
   online, Reopen an export, Delete all photos and slides. The TV itself is implicit (one slides frame); other slide
