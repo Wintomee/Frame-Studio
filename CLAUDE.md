@@ -272,6 +272,10 @@ Settings (icon only).
   count (no min/keeps captions, cards hidden when there's only one). The old icon rows (`renderGroups`) show only after
   All. The row is a strongly tinted panel with 132 px cards drawn as bare photos on a plain ground, so it isn't
   mistaken for the filmstrip (smaller cards looked even more like it). No location pins on Edit filmstrip thumbnails.
+- **Selections follow the filter** (`pruneSel`): selecting never keeps photos or slides the current filter hides, and
+  the Slides tab's top **Export N** exports the selection when there is one (else everything to upload). Before this,
+  a hidden selection made the count, the bar and Export disagree. Export renders each slide with a 45 s limit and skips
+  (and names) any that fail instead of hanging; `fullOf` falls back to the stored file, then the 1000 px preview.
 - **Slides tab**: cards drawn from the photo thumbnails (`drawSlide`, cached per slide in `CARD` by signature), filters
   To upload / All, Export N (new + changed). Selecting works like Photos (the same `gridSelect` handler: hold, tap,
   sideways swipe, All/None within the filter); the bar has Edit / Export / On TV / Off TV / Delete. Detail: On the TV

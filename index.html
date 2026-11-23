@@ -1315,7 +1315,15 @@ async function loadPhoto(file){
   freeImg(im);
   return {file:keep,prev,thumbBlob:await thumbOf(prev),w,h,ow:w,oh:h,date:ex.date??file.lastModified??0,lat:ex.lat,lon:ex.lon,zoom:1,cx:.5,cy:.5,sent:[]};
 }
-async function fullOf(ph){return ph.src||imgFrom(ph.file)}
+async function fullOf(ph){
+  if(ph.src)return ph.src;
+  if(ph.file)try{return await imgFrom(ph.file)}catch{}
+  // file missing or undecodable on this phone: try the stored copy, then the 1000 px preview
+  const a=await DB.get('assets',ph.id).catch(()=>null);
+  if(a&&a.file&&a.file!==ph.file)try{return await imgFrom(a.file)}catch{}
+  if(a&&a.prevBlob)return imgFrom(a.prevBlob);
+  throw new Error('no image for '+ph.id);
+}
 // small square-ish thumbnail for the Photos grid and slide cards
 function thumbOf(src){const c=shrink(src,src.width,src.height,400);return new Promise(r=>c.toBlob(b=>{c.width=c.height=1;r(b)},'image/jpeg',.8))}
 // the 1000 px preview is decoded only for photos on slides being edited (decoding them all crashed iOS before)
@@ -2012,6 +2020,7 @@ function phList(sm=slideMap()){const f=PH.flt;return S.lib.filter(p=>phMatch(p,f
 function renderPhotos(){
   const sm=slideMap(),empty=!S.lib.length;$('phEmpty').hidden=!empty;$('phFilters').hidden=empty;
   if(!S.pf.some(f=>f.id===PH.flt)&&!['nosl','notv','all','hero'].includes(PH.flt))PH.flt='nosl';
+  pruneSel(PH.sel,phList(sm).map(p=>p.id));
   const cnt=k=>S.lib.filter(p=>phMatch(p,k,sm)).length;
   const chips=[['nosl','Not on slides'],['notv','Not on TV'],['all','All'],['hero',svg('star')+'Hero'],...S.pf.map(f=>[f.id,ltr(f)+'Not sent'])];
   $('phFilters').innerHTML=chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${PH.flt===k}">${l} <span class="n">${cnt(k)}</span></button>`).join('');
@@ -2077,7 +2086,14 @@ const selMode=()=>PH.sel.size>0||PH.pick;
 function tapTile(id){if(selMode()){PH.sel.has(id)?PH.sel.delete(id):PH.sel.add(id);syncPhotoSel()}else openPhoto(id)}
 gridSelect($('phGrid'),'.ptile',{sel:()=>PH.sel,setSel:s=>{PH.sel=s},selMode,tap:tapTile,open:id=>openPhoto(id),sync:syncPhotoSel});
 const slideById=id=>[...S.done,...S.pages].find(pg=>pg.id===id);
-function syncSlideSel(){$('slGrid').querySelectorAll('.scard').forEach(c=>c.classList.toggle('sel',SL.sel.has(c.dataset.id)));syncSelbar()}
+function syncSlideSel(){$('slGrid').querySelectorAll('.scard').forEach(c=>c.classList.toggle('sel',SL.sel.has(c.dataset.id)));syncSlideExport();syncSelbar()}
+// what you see is what you act on: drop selected items the current filter hides (a hidden selection made "Export"/counts disagree)
+function pruneSel(sel,visibleIds){const v=new Set(visibleIds);[...sel].forEach(id=>{if(!v.has(id))sel.delete(id)})}
+// top Export: the selected slides when there's a selection, otherwise everything still to upload
+function syncSlideExport(){
+  const all=slidesAll(),pick=SL.sel.size?all.filter(pg=>SL.sel.has(pg.id)):all.filter(pg=>['new','chg'].includes(slideState(pg))),list=pick.filter(pg=>!editing(pg)&&complete(pg));
+  const b=$('slExport');b.innerHTML=svg('export')+`Export ${list.length||''}`;b.disabled=!list.length;b.onclick=()=>{SL.sel.clear();exportPages(list).finally(()=>{if(S.tab==='slides')renderSlides()})};
+}
 gridSelect($('slGrid'),'.scard',{sel:()=>SL.sel,setSel:s=>{SL.sel=s},selMode:()=>SL.sel.size>0,
   tap:id=>{if(SL.sel.size){SL.sel.has(id)?SL.sel.delete(id):SL.sel.add(id);syncSlideSel()}else{const pg=slideById(id);if(pg)openSlide(pg)}},
   open:id=>{const pg=slideById(id);if(pg)openSlide(pg)},sync:syncSlideSel});
@@ -2187,7 +2203,7 @@ function slidesAll(){return [...S.done,...S.pages].sort((a,b)=>firstDate(a)-firs
 const slideList=()=>{const all=slidesAll();return SL.flt==='todo'?all.filter(pg=>slideState(pg)!=='on'):all}; // what the filter shows
 function renderSlides(){
   const all=slidesAll(),todo=all.filter(pg=>['new','chg'].includes(slideState(pg))&&complete(pg));
-  $('slExport').innerHTML=svg('export')+`Export ${todo.length||''}`;$('slExport').disabled=!todo.length;$('slExport').onclick=()=>exportPages(todo);
+  pruneSel(SL.sel,slideList().map(pg=>pg.id));syncSlideExport();
   const nTodo=all.filter(pg=>slideState(pg)!=='on').length;
   $('slFilters').innerHTML=[['todo','To upload',nTodo],['all','All',all.length]].map(([k,l,n])=>`<button class="chip" data-f="${k}" aria-pressed="${SL.flt===k}">${l} <span class="n">${n}</span></button>`).join('');
   $('slFilters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{SL.flt=b.dataset.f;renderSlides()});
@@ -2671,6 +2687,7 @@ async function renderExport(st,sid){
   const rs=rectsOf(st.L,st.pad,insOf(st.frame));
   for(let i=0;i<rs.length;i++){const ph=st.photos[i];const img=await fullOf(ph);drawPhoto(x,ph,img,rs[i]);freeImg(img)}
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));c.width=c.height=1;
+  if(!blob)throw new Error('toBlob failed'); // iOS returns null when it runs out of canvas memory
   return withMeta(blob,{v:1,W,H,pad:st.pad,bg:st.bg,wall:st.wall,label:st.label,frame:st.frame,fopt:S.fopt,ins:insOf(st.frame),cells:st.L.cells,x:st.L.x,y:st.L.y,rects:rs,
     photos:st.photos.map(p=>p&&{date:p.date,zoom:p.zoom,cx:p.cx,cy:p.cy}),sid});
 }
@@ -2684,15 +2701,22 @@ async function exportPages(list){
   const need=new Set(list.flatMap(pg=>filled(pg).filter(p=>p.lat!=null).map(poiKey))),t0=Date.now();
   while(poiQ.some(k=>need.has(k))&&Date.now()-t0<60000){hint(`Looking up places… ${poiDone}/${poiTotal}`);await tick(500)}
   await loadPlaces();await document.fonts.load(LFONT(40)).catch(()=>{});
+  const failed=[],done=[];
   for(let i=0;i<list.length;i++){
     hint(`Rendering ${i+1} of ${list.length}…`);
-    items.push({blob:await renderExport(stOf(list[i]),list[i].id),name:fname(i)});
+    let blob=null;
+    try{blob=await Promise.race([renderExport(stOf(list[i]),list[i].id),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),45000))])}
+    catch(err){console.warn('export failed',list[i].id,err);failed.push(i+1);continue}
+    const it={blob,name:fname(i)};items.push(it);done.push(list[i]);
     if(dl){
-      try{await dl.save({filename:items[i].name,data:items[i].blob})}
+      try{await dl.save({filename:it.name,data:it.blob})}
       catch(err){if(err&&err.code==='declined'){hint('Export cancelled.');return}hint('Saving isn’t available here.');return}
     }
+    await tick(30); // let the phone free the last 4K canvas before the next one
   }
-  hint('');
+  hint(failed.length?`Couldn’t render slide${failed.length>1?'s':''} ${failed.join(', ')}; the rest are ready.`:'');
+  if(!items.length)return;
+  list=done;
   if(dl){askTV(list);return}
   // sharing needs a fresh tap, so the rendered images wait behind one button
   READY=items;
